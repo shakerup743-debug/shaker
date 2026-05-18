@@ -18,6 +18,7 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [redirectingToGoogle, setRedirectingToGoogle] = useState(false);
   const processedRef = useRef(false);
 
   useEffect(() => {
@@ -49,6 +50,8 @@ export default function SignInPage() {
       } catch (err) {
         setError((err as Error).message);
         setGoogleLoading(false);
+        // Clean hash so user can retry
+        window.history.replaceState({}, "", window.location.pathname);
       }
     })();
   }, []);
@@ -76,31 +79,46 @@ export default function SignInPage() {
 
   const handleGoogleLogin = () => {
     setError(null);
+    setRedirectingToGoogle(true);
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
     const redirectUrl = window.location.origin + "/sign-in";
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    setTimeout(() => {
+      window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    }, 400);
   };
 
-  const handleAppleLogin = () => {
-    setError(
-      isAr
-        ? "تسجيل الدخول بـ Apple يتطلب حساب Apple Developer. يرجى التواصل مع المسؤول لتفعيله."
-        : "Apple Sign-In requires an Apple Developer account. Please contact the administrator to enable it.",
-    );
-  };
-
-  if (googleLoading) {
+  if (googleLoading || redirectingToGoogle) {
     return (
       <div
-        className="min-h-screen bg-[#111827] flex flex-col items-center justify-center px-4"
+        className="min-h-screen bg-[#0B0F19] flex flex-col items-center justify-center px-4 relative overflow-hidden"
         dir={isAr ? "rtl" : "ltr"}
         data-testid="signin-google-loading"
       >
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-3 border-[#E67E22] border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 text-sm">
-            {isAr ? "جاري تسجيل الدخول..." : "Signing you in..."}
-          </p>
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#E67E22]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col items-center gap-6 max-w-sm text-center">
+          <div className="relative">
+            <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-2xl">
+              <svg width="40" height="40" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4" />
+                <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853" />
+                <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05" />
+                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335" />
+              </svg>
+            </div>
+            <div className="absolute inset-0 w-20 h-20 border-2 border-[#E67E22] border-t-transparent rounded-full animate-spin" />
+          </div>
+          <div>
+            <p className="text-white text-base font-semibold">
+              {redirectingToGoogle
+                ? (isAr ? "جاري التحويل إلى Google..." : "Redirecting to Google...")
+                : (isAr ? "جاري تسجيل دخولك..." : "Signing you in...")}
+            </p>
+            <p className="text-gray-400 text-xs mt-2">
+              {isAr
+                ? "اختر حساب Google ثم سيعيدك للوحة التحكم"
+                : "Choose your Google account, then you'll be returned to your dashboard"}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -112,7 +130,6 @@ export default function SignInPage() {
       dir={isAr ? "rtl" : "ltr"}
       data-testid="signin-page"
     >
-      {/* Decorative gradients */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#E67E22]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-[#F39C12]/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -147,34 +164,20 @@ export default function SignInPage() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-800 font-semibold rounded-xl px-4 py-3 transition-all hover:scale-[1.01] active:scale-[0.99]"
-              data-testid="signin-google-btn"
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
-                <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4" />
-                <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853" />
-                <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05" />
-                <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335" />
-              </svg>
-              {isAr ? "تسجيل الدخول بـ Google" : "Sign in with Google"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleAppleLogin}
-              className="w-full flex items-center justify-center gap-3 bg-black hover:bg-gray-900 border border-white/10 text-white font-semibold rounded-xl px-4 py-3 transition-all hover:scale-[1.01] active:scale-[0.99]"
-              data-testid="signin-apple-btn"
-            >
-              <svg width="16" height="18" viewBox="0 0 16 18" fill="white" xmlns="http://www.w3.org/2000/svg">
-                <path d="M13.34 9.45c.01-1.65 1.36-2.45 1.42-2.49-.78-1.13-1.98-1.29-2.4-1.31-1.02-.1-1.99.6-2.51.6-.51 0-1.32-.59-2.17-.57-1.11.02-2.14.65-2.71 1.65-1.16 2-.29 4.96.82 6.58.55.79 1.21 1.68 2.06 1.65.83-.03 1.14-.53 2.14-.53 1 0 1.28.53 2.15.51.89-.01 1.45-.8 1.99-1.6.63-.92.89-1.81.9-1.86-.02-.01-1.72-.66-1.74-2.62zm-1.65-4.81c.45-.55.76-1.31.67-2.07-.65.03-1.45.44-1.92.99-.42.48-.79 1.26-.69 2 .73.06 1.48-.37 1.94-.92z" />
-              </svg>
-              {isAr ? "تسجيل الدخول بـ Apple" : "Sign in with Apple"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-800 font-semibold rounded-xl px-4 py-3 transition-all hover:scale-[1.01] active:scale-[0.99] shadow-lg"
+            data-testid="signin-google-btn"
+          >
+            <svg width="20" height="20" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4" />
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853" />
+              <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05" />
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335" />
+            </svg>
+            {isAr ? "تسجيل الدخول بـ Google" : "Sign in with Google"}
+          </button>
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-white/10" />
@@ -191,7 +194,7 @@ export default function SignInPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={isAr ? "you@example.com" : "you@example.com"}
+                placeholder="you@example.com"
                 required
                 autoComplete="email"
                 className="bg-[#0B0F19] border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#E67E22] focus:ring-2 focus:ring-[#E67E22]/20 transition-all"

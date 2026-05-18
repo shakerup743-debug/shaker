@@ -17,7 +17,42 @@
 - **Auth**: JWT + Emergent-managed Google OAuth (Apple disabled — needs Apple Developer Account)
 - **Supervisor**: postgres, backend (8001), frontend (3000), mongodb
 
-## What's Been Implemented (Session 1) — 2026-01
+## What's Been Implemented (Session 2 — Polish) — 2026-01
+
+### Authentication Cleanup
+- ✅ **Removed seeded demo user** (`admin@foodoro.local`) and all demo data
+- ✅ **Database wiped clean** — no users, no tenants, fresh start
+- ✅ **No auto-fill in sign-in fields** — production-ready
+- ✅ **Removed Apple Sign-In button** (no Apple Developer credentials available)
+- ✅ **Improved Google Sign-In UX**:
+  - Polished "Redirecting to Google..." loading screen with branded spinner
+  - Clear messaging: "Choose your Google account, then you'll be returned to your dashboard"
+  - 400ms delay before redirect to show the transition clearly
+- ✅ **New Sign-Up endpoint**: `POST /api/auth/signup`
+  - Validates email format, password length ≥ 8
+  - Creates new tenant + owner user atomically
+  - Auto-seeds 4 starter categories (Beverages, Main Dishes, Appetizers, Desserts)
+  - Returns JWT immediately (auto-login after signup)
+- ✅ **New beautiful Sign-Up page**: `/sign-up`
+  - Two-step wizard with progress bar (1/2 → 2/2)
+  - Step 1: Restaurant name (with "You will be primary owner" reassurance)
+  - Step 2: Full name, email, password, confirm password (with validation)
+  - Polished UI matching sign-in design
+- ✅ **Google OAuth also seeds starter categories** for first-time Google users
+
+### Visual Improvements
+- ✅ Gradient logo (orange→amber)
+- ✅ Decorative blurred gradients in background
+- ✅ Backdrop-blur card with subtle white/5 borders
+- ✅ Smooth hover animations (`hover:scale-[1.01]`)
+- ✅ Animated Google logo with orbiting spinner during redirect
+- ✅ Clear field placeholders and focus rings
+
+## Owner / Tenant Logic
+- **First user who signs up** → becomes **owner** of their own brand-new tenant
+- Each email creates a SEPARATE restaurant (multi-tenant)
+- New tenants start with: SAR currency, 15% VAT, starter plan, 4 sample categories
+- Owner has full access to all modules; can later invite staff with limited roles
 
 ### Infrastructure
 - ✅ Installed PostgreSQL 15 + initialized cluster + auto-start via supervisor
