@@ -1,0 +1,859 @@
+{
+  "nav": {
+    "pos": "البيع",
+    "kitchen": "المطبخ",
+    "products": "المنتجات",
+    "inventory": "المخزون",
+    "inventoryIntelligence": "ذكاء المخزون",
+    "customerAnalytics": "تحليل العملاء",
+    "financialsOverview": "الأرباح والخسائر",
+    "tenantSettings": "إعدادات المؤسسة",
+    "reports": "التقارير",
+    "reportsAdvanced": "التحليلات",
+    "financials": "المالية",
+    "ai": "ذكاء اصطناعي",
+    "customers": "العملاء",
+    "suppliers": "الموردون",
+    "coupons": "الكوبونات",
+    "tables": "الطاولات",
+    "staff": "الموظفون",
+    "staffSchedule": "الجدول",
+    "branches": "الفروع",
+    "webhooks": "Webhooks",
+    "loyalty": "الولاء",
+    "payments": "المدفوعات",
+    "audit": "سجل التدقيق",
+    "security": "مركز الأمان",
+    "shifts": "شفتات الكاشير",
+    "notifications": "الإشعارات",
+    "qrMenu": "قائمة QR",
+    "floorPlan": "خريطة الطاولات",
+    "apiDocs": "توثيق API",
+    "developer": "المطورون",
+    "settings": "الإعدادات",
+    "cashierAmendments": "تعديل الفواتير",
+    "management": "الإدارة"
+  },
+  "auth": {
+    "login": "تسجيل الدخول",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "signIn": "دخول",
+    "signingIn": "جارٍ الدخول...",
+    "loginError": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+    "logout": "تسجيل الخروج",
+    "unauthorized": "غير مصرح",
+    "noPermission": "لا تملك صلاحية الوصول لهذه الصفحة",
+    "demoAccounts": "دخول سريع — حسابات تجريبية",
+    "roles": {
+      "admin": "مدير النظام",
+      "cashier": "كاشير",
+      "kitchen_staff": "موظف مطبخ",
+      "inventory_manager": "مسؤول مخزون"
+    }
+  },
+  "pos": {
+    "title": "نقطة البيع",
+    "orderType": {
+      "dine_in": "داخل المطعم",
+      "takeaway": "خارج المطعم",
+      "delivery": "توصيل"
+    },
+    "tableNumber": "طاولة #",
+    "allCategories": "الكل",
+    "noProducts": "لا توجد منتجات",
+    "cart": {
+      "title": "الطلب الحالي",
+      "empty": "السلة فارغة",
+      "clear": "مسح",
+      "discount": "خصم (ر.س)",
+      "subtotal": "المجموع",
+      "tax": "ضريبة (15%)",
+      "taxIncluded": "شامل ضريبة القيمة المضافة (15%)",
+      "total": "الإجمالي"
+    },
+    "payment": {
+      "cash": "نقدي",
+      "card": "بطاقة",
+      "mixed": "مختلط",
+      "title": "إتمام الدفع",
+      "method": "طريقة الدفع",
+      "amountReceived": "المبلغ المستلم",
+      "enterAmount": "أدخل المبلغ",
+      "change": "الباقي",
+      "confirm": "تأكيد وإرسال الطلب"
+    },
+    "toast": {
+      "orderPlaced": "تم إرسال الطلب",
+      "kitchenNotified": "تم إبلاغ المطبخ.",
+      "error": "خطأ",
+      "failedToPlace": "فشل إرسال الطلب.",
+      "lowStock": "تنبيه مخزون منخفض",
+      "lowStockDetail": "{{name}}: {{quantity}} {{unit}} متبقي (الحد الأدنى: {{threshold}} {{unit}})"
+    }
+  },
+  "kitchen": {
+    "title": "شاشة المطبخ",
+    "active": "نشط",
+    "updated": "آخر تحديث",
+    "noOrders": "لا توجد طلبات",
+    "refresh": "تحديث",
+    "statuses": {
+      "new": "جديد",
+      "in_progress": "قيد التحضير",
+      "ready": "جاهز",
+      "completed": "مكتمل"
+    },
+    "actions": {
+      "startPreparing": "بدء التحضير",
+      "markReady": "تم التحضير",
+      "completed": "مكتمل"
+    },
+    "tags": {
+      "takeaway": "خارجي",
+      "table": "طاولة"
+    },
+    "sound": {
+      "mute": "كتم التنبيهات",
+      "unmute": "تفعيل التنبيهات",
+      "newBadge": "جديد"
+    }
+  },
+  "products": {
+    "title": "المنتجات",
+    "items": "منتج",
+    "addProduct": "إضافة منتج",
+    "search": "بحث عن منتج...",
+    "all": "الكل",
+    "form": {
+      "name": "الاسم *",
+      "price": "السعر (ر.س) *",
+      "category": "الفئة *",
+      "description": "الوصف",
+      "descriptionPlaceholder": "وصف اختياري",
+      "pricePlaceholder": "0.00",
+      "namePlaceholder": "اسم المنتج",
+      "selectCategory": "اختر",
+      "save": "إضافة منتج",
+      "update": "تحديث المنتج",
+      "saving": "جارٍ الحفظ..."
+    },
+    "edit": "تعديل المنتج",
+    "recipe": {
+      "title": "الوصفة / المكونات",
+      "subtitle": "يتم خصم المكونات من المخزون تلقائياً عند اكتمال الطلب",
+      "add": "إضافة مكوّن",
+      "noIngredients": "لا توجد مكونات مرتبطة — لن يتم خصم المخزون تلقائياً",
+      "ingredient": "المكوّن",
+      "selectIngredient": "اختر صنفاً من المخزون",
+      "qty": "الكمية لكل وحدة",
+      "remove": "حذف",
+      "save": "حفظ الوصفة",
+      "saved": "تم حفظ الوصفة",
+      "error": "فشل حفظ الوصفة"
+    },
+    "delete": {
+      "title": "حذف المنتج؟",
+      "message": "لا يمكن التراجع عن هذا الإجراء.",
+      "cancel": "إلغاء",
+      "confirm": "حذف"
+    },
+    "toast": {
+      "created": "تم إنشاء المنتج",
+      "updated": "تم تحديث المنتج",
+      "deleted": "تم حذف المنتج",
+      "error": "خطأ",
+      "failedCreate": "فشل إنشاء المنتج",
+      "failedUpdate": "فشل تحديث المنتج",
+      "failedDelete": "فشل حذف المنتج"
+    }
+  },
+  "inventory": {
+    "title": "المخزون",
+    "lowStockBadge": "مخزون منخفض",
+    "lowStockOnly": "المخزون المنخفض فقط",
+    "addItem": "إضافة صنف",
+    "table": {
+      "item": "الصنف",
+      "currentStock": "المخزون الحالي",
+      "consumedToday": "المستهلك اليوم",
+      "lowStockAlert": "تنبيه انخفاض المخزون",
+      "status": "الحالة",
+      "actions": "إجراءات"
+    },
+    "status": {
+      "inStock": "متوفر",
+      "lowStock": "مخزون منخفض"
+    },
+    "adjust": "تعديل",
+    "adjustTitle": "تعديل المخزون",
+    "adjustForm": {
+      "amount": "الكمية",
+      "reason": "السبب",
+      "reasonPlaceholder": "مثال: استلام بضاعة، استخدام في التحضير...",
+      "remove": "خصم",
+      "add": "إضافة"
+    },
+    "form": {
+      "name": "اسم الصنف *",
+      "namePlaceholder": "مثال: طماطم",
+      "quantity": "الكمية *",
+      "unit": "الوحدة",
+      "unitPlaceholder": "قطعة، كجم، لتر...",
+      "threshold": "تنبيه عند الوصول إلى",
+      "save": "إضافة صنف",
+      "adding": "جارٍ الإضافة..."
+    },
+    "toast": {
+      "adjusted": "تم تعديل المخزون",
+      "added": "تم إضافة الصنف",
+      "error": "خطأ"
+    }
+  },
+  "currency": {
+    "change": "تغيير العملة",
+    "select": "اختر العملة"
+  },
+  "reports": {
+    "title": "التقارير",
+    "tabs": {
+      "daily": "يومي",
+      "monthly": "شهري",
+      "yearly": "سنوي",
+      "kpi": "مؤشرات الأداء",
+      "invoices": "الفواتير"
+    },
+    "print": "طباعة التقرير",
+    "exportExcel": "تصدير Excel",
+    "exportCsv": "تصدير CSV",
+    "noData": "لا توجد بيانات لهذه الفترة",
+    "vsYesterday": "مقارنة بالأمس",
+    "vsPrevPeriod": "مقارنة بالفترة السابقة",
+    "vsPrevWeek": "مقارنة بالأسبوع الماضي",
+    "periods": {
+      "today": "اليوم",
+      "yesterday": "أمس",
+      "thisWeek": "هذا الأسبوع",
+      "thisMonth": "هذا الشهر",
+      "last3Months": "آخر 3 أشهر",
+      "thisYear": "هذه السنة",
+      "custom": "مخصص"
+    },
+    "alerts": {
+      "revenueDown": "الإيرادات انخفضت {{pct}}% مقارنة بالأمس",
+      "lowStock": "{{count}} صنف دون الحد الأدنى",
+      "pendingOrders": "{{count}} طلب معلق في المطبخ"
+    },
+    "planGate": {
+      "title": "يتطلب خطة {{plan}}",
+      "desc": "قم بالترقية إلى خطة {{plan}} لفتح هذا التقرير."
+    },
+    "kpi": {
+      "title": "مؤشرات الأداء الرئيسية",
+      "financial": "المالية",
+      "sales": "المبيعات",
+      "operations": "العمليات",
+      "inventory": "المخزون",
+      "totalRevenue": "إجمالي الإيرادات",
+      "prevRevenue": "الفترة السابقة",
+      "taxCollected": "ضريبة محصّلة",
+      "discountsGiven": "الخصومات",
+      "cashRevenue": "إيرادات نقدية",
+      "cardRevenue": "إيرادات بطاقة",
+      "orderCount": "إجمالي الطلبات",
+      "completedOrders": "مكتملة",
+      "cancelledOrders": "ملغاة",
+      "cancellationRate": "معدل الإلغاء",
+      "averageOrderValue": "متوسط قيمة الطلب",
+      "dineIn": "داخل المطعم",
+      "takeaway": "مع الإلغاء",
+      "delivery": "توصيل",
+      "lowStockCount": "أصناف مخزون منخفض",
+      "lowStockList": "أصناف دون الحد",
+      "trend": "الاتجاه"
+    },
+    "category": {
+      "title": "المبيعات حسب الفئة",
+      "revenue": "الإيرادات",
+      "itemsSold": "مباعة",
+      "orders": "طلبات"
+    },
+    "weekday": {
+      "title": "المبيعات حسب اليوم",
+      "Sun": "أحد", "Mon": "اثن", "Tue": "ثلا", "Wed": "أرب",
+      "Thu": "خمي", "Fri": "جمع", "Sat": "سبت"
+    },
+    "dashboardCards": {
+      "todayRevenue": "إيرادات اليوم",
+      "todayOrders": "طلبات اليوم",
+      "activeOrders": "الطلبات النشطة",
+      "weekRevenue": "إيرادات الأسبوع",
+      "kitchenQueue": "قائمة المطبخ",
+      "lowStock": "مخزون منخفض",
+      "completedOrders": "طلبات مكتملة",
+      "placedToday": "طلب اليوم",
+      "inProgress": "قيد التنفيذ",
+      "lastSevenDays": "آخر 7 أيام",
+      "pendingTickets": "تذاكر معلقة",
+      "needAttention": "تحتاج متابعة"
+    },
+    "daily": {
+      "totalRevenue": "إجمالي الإيرادات",
+      "orders": "الطلبات",
+      "avgOrder": "متوسط قيمة الطلب",
+      "paymentSplit": "توزيع المدفوعات",
+      "cash": "نقدي",
+      "card": "بطاقة",
+      "completed": "مكتملة",
+      "cancelled": "ملغاة",
+      "tax": "ضريبة محصّلة",
+      "discount": "الخصومات",
+      "dineIn": "داخل المطعم",
+      "takeaway": "مع الإلغاء",
+      "delivery": "توصيل",
+      "orderTypes": "أنواع الطلبات"
+    },
+    "monthly": {
+      "title": "التقرير الشهري",
+      "selectMonth": "الشهر",
+      "selectYear": "السنة",
+      "dailyChart": "الإيرادات اليومية",
+      "summary": "ملخص الشهر"
+    },
+    "yearly": {
+      "title": "التقرير السنوي",
+      "selectYear": "السنة",
+      "monthlyChart": "الإيرادات الشهرية",
+      "summary": "ملخص السنة"
+    },
+    "hourly": {
+      "title": "المبيعات بالساعة",
+      "peak": "الذروة"
+    },
+    "topProducts": {
+      "title": "أفضل المنتجات",
+      "noData": "لا توجد بيانات لهذا اليوم",
+      "sold": "مباع"
+    },
+    "months": {
+      "1": "يناير", "2": "فبراير", "3": "مارس", "4": "أبريل",
+      "5": "مايو", "6": "يونيو", "7": "يوليو", "8": "أغسطس",
+      "9": "سبتمبر", "10": "أكتوبر", "11": "نوفمبر", "12": "ديسمبر"
+    },
+    "monthsFull": {
+      "1": "يناير", "2": "فبراير", "3": "مارس", "4": "أبريل",
+      "5": "مايو", "6": "يونيو", "7": "يوليو", "8": "أغسطس",
+      "9": "سبتمبر", "10": "أكتوبر", "11": "نوفمبر", "12": "ديسمبر"
+    },
+    "sections": {
+      "sales": "المبيعات",
+      "inventory_waste": "المخزون والهدر",
+      "financial": "المالية"
+    }
+  },
+  "waste": {
+    "title": "سجل الهدر",
+    "logWaste": "تسجيل الهدر",
+    "today": "اليوم",
+    "todayWaste": "هدر اليوم",
+    "form": {
+      "item": "الصنف",
+      "selectInventory": "اختر من المخزون...",
+      "typeManually": "أو اكتب اسم الصنف يدوياً",
+      "available": "متوفر حالياً",
+      "quantity": "الكمية",
+      "unit": "الوحدة",
+      "reason": "سبب الهدر",
+      "costEstimate": "التكلفة المقدرة (ر.س، اختياري)",
+      "notes": "ملاحظات (اختياري)",
+      "notesPlaceholder": "تفاصيل إضافية...",
+      "submit": "تسجيل الهدر",
+      "submitting": "جارٍ الحفظ...",
+      "success": "تم التسجيل"
+    },
+    "reasons": {
+      "spoilage": "تلف",
+      "burning": "احتراق",
+      "expiry": "انتهاء صلاحية",
+      "prep_error": "خطأ في التحضير",
+      "theft": "سرقة",
+      "other": "أخرى"
+    },
+    "analytics": {
+      "title": "تحليل الهدر",
+      "totalCost": "تكلفة الهدر الإجمالية",
+      "totalEntries": "إجمالي الإدخالات",
+      "topItems": "أكثر الأصناف هدراً",
+      "byReason": "الهدر حسب السبب (ر.س)",
+      "recentLog": "سجل الهدر",
+      "noData": "لا توجد بيانات هدر لهذه الفترة",
+      "noDataHint": "سجّل الهدر من صفحة المطبخ"
+    }
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "categories": {
+      "title": "فئات المنتجات",
+      "subtitle": "نظّم قائمتك باستخدام الفئات",
+      "addCategory": "إضافة فئة",
+      "empty": "لا توجد فئات بعد",
+      "emptyHint": "أضف فئة لتنظيم قائمتك",
+      "form": {
+        "name": "اسم الفئة *",
+        "namePlaceholder": "مثال: برغر، مشروبات...",
+        "color": "اللون",
+        "save": "إضافة فئة",
+        "update": "تحديث الفئة",
+        "saving": "جارٍ الحفظ..."
+      },
+      "editTitle": "تعديل الفئة",
+      "delete": {
+        "title": "حذف الفئة؟",
+        "message": "لن يتم حذف المنتجات المرتبطة بهذه الفئة لكنها ستفقد ارتباطها بها.",
+        "cancel": "إلغاء",
+        "confirm": "حذف"
+      }
+    },
+    "system": {
+      "title": "معلومات النظام",
+      "system": "النظام",
+      "systemValue": "FOODORO POS v1.0",
+      "taxRate": "نسبة الضريبة",
+      "taxValue": "ضريبة 15%",
+      "currency": "العملة",
+      "currencyValue": "ريال سعودي (ر.س)",
+      "mode": "الحالة",
+      "online": "متصل"
+    },
+    "toast": {
+      "created": "تم إنشاء الفئة",
+      "updated": "تم تحديث الفئة",
+      "deleted": "تم حذف الفئة",
+      "error": "خطأ"
+    },
+    "auditLog": {
+      "title": "سجل النشاط",
+      "subtitle": "تتبع جميع الإجراءات الحرجة المنفذة في النظام",
+      "filterFrom": "من",
+      "filterTo": "إلى",
+      "filterAction": "جميع الإجراءات",
+      "load": "تحميل",
+      "exportCsv": "تصدير CSV",
+      "noData": "لا يوجد نشاط",
+      "noDataHint": "جرّب تغيير الفلاتر أو حمّل السجلات",
+      "columns": {
+        "time": "الوقت",
+        "user": "المستخدم",
+        "action": "الإجراء",
+        "resource": "المورد",
+        "resourceId": "المعرف",
+        "ip": "IP"
+      },
+      "actions": {
+        "login": "تسجيل دخول",
+        "logout": "تسجيل خروج",
+        "order_created": "طلب جديد",
+        "order_completed": "طلب مكتمل",
+        "inventory_adjusted": "تعديل مخزون",
+        "user_created": "مستخدم جديد",
+        "user_updated": "تحديث مستخدم"
+      }
+    }
+  },
+  "qr": {
+    "title": "طلب QR للطاولات",
+    "subtitle": "أنشئ رمز QR لكل طاولة ليتمكن الضيوف من الطلب عبر هواتفهم",
+    "tableLabel": "رقم الطاولة",
+    "tablePlaceholder": "مثال: 1، 2، A1...",
+    "generate": "إنشاء رمز QR",
+    "download": "تحميل PNG",
+    "scanHint": "يمكن للضيوف مسح هذا الرمز لتقديم طلباتهم مباشرة",
+    "orderLink": "رابط الطلب للطاولة {{table}}"
+  },
+  "order": {
+    "invalidQr": "رمز QR غير صالح",
+    "invalidQrHint": "يرجى مسح رمز QR صالح للطاولة لتقديم طلبك.",
+    "table": "طاولة {{table}}",
+    "cart": "السلة",
+    "all": "الكل",
+    "add": "إضافة",
+    "orderPlaced": "تم تقديم الطلب!",
+    "kitchenSent": "تم إرسال طلبك إلى المطبخ.",
+    "tableSummary": "طاولة {{table}} · الإجمالي: {{total}} ر.س",
+    "orderMore": "طلب المزيد",
+    "yourOrder": "طلبك · طاولة {{table}}",
+    "noItems": "لم تتم إضافة أي عناصر بعد",
+    "specialRequests": "أي طلبات خاصة أو ملاحظات...",
+    "subtotal": "المجموع",
+    "vat": "ضريبة (15%)",
+    "total": "الإجمالي",
+    "placeOrder": "تأكيد الطلب · {{total}} ر.س",
+    "placing": "جارٍ الطلب..."
+  },
+  "customers": {
+    "title": "العملاء",
+    "subtitle": "إدارة العملاء وبرنامج الولاء",
+    "add": "إضافة عميل",
+    "addTitle": "عميل جديد",
+    "search": "بحث بالاسم أو الهاتف...",
+    "allTiers": "جميع المستويات",
+    "noCustomers": "لا يوجد عملاء بعد",
+    "orders": "طلبات",
+    "spent": "إجمالي الإنفاق",
+    "points": "نقطة",
+    "delete": "حذف العميل",
+    "addNote": "إضافة ملاحظة",
+    "notePlaceholder": "اكتب ملاحظة...",
+    "adjustPoints": "تعديل نقاط الولاء",
+    "pointsAmount": "النقاط",
+    "pointsReason": "السبب (اختياري)",
+    "earnPoints": "إضافة",
+    "redeemPoints": "استرداد",
+    "stats": {
+      "total": "إجمالي العملاء",
+      "silver": "فضي",
+      "gold": "ذهبي",
+      "platinum": "بلاتيني"
+    },
+    "form": {
+      "name": "الاسم الكامل",
+      "phone": "الهاتف",
+      "email": "البريد الإلكتروني",
+      "notes": "ملاحظات"
+    },
+    "toast": {
+      "created": "تم إضافة العميل",
+      "deleted": "تم حذف العميل",
+      "noteAdded": "تمت إضافة الملاحظة",
+      "pointsUpdated": "تم تحديث النقاط",
+      "error": "فشل الحفظ"
+    }
+  },
+  "suppliers": {
+    "title": "الموردون",
+    "count": "مورد",
+    "add": "إضافة مورد",
+    "addTitle": "مورد جديد",
+    "newOrder": "أمر شراء جديد",
+    "noSuppliers": "لا يوجد موردون بعد",
+    "noOrders": "لا توجد أوامر شراء",
+    "order": "أمر",
+    "createOrder": "إنشاء الأمر",
+    "leadTime": "مدة التسليم",
+    "selectSupplier": "اختر موردًا",
+    "expectedDelivery": "تاريخ التسليم المتوقع",
+    "tabs": {
+      "suppliers": "الموردون",
+      "orders": "أوامر الشراء"
+    },
+    "status": {
+      "pending": "معلق",
+      "confirmed": "مؤكد",
+      "in_transit": "في الطريق",
+      "delivered": "مُسلَّم",
+      "cancelled": "ملغي"
+    },
+    "form": {
+      "name": "اسم الشركة",
+      "contact": "مسؤول التواصل",
+      "phone": "الهاتف",
+      "email": "البريد الإلكتروني",
+      "address": "العنوان",
+      "leadTime": "مدة التوريد (أيام)",
+      "rating": "التقييم (1–5)",
+      "supplier": "المورد",
+      "itemName": "اسم الصنف",
+      "quantity": "الكمية",
+      "unit": "الوحدة",
+      "unitCost": "سعر الوحدة (ر.س)",
+      "expectedDelivery": "تاريخ التسليم"
+    },
+    "toast": {
+      "created": "تم إضافة المورد",
+      "orderCreated": "تم إنشاء أمر الشراء",
+      "error": "فشل الحفظ"
+    }
+  },
+  "coupons": {
+    "title": "الكوبونات والخصومات",
+    "add": "إضافة كوبون",
+    "addTitle": "كوبون جديد",
+    "active": "نشط",
+    "totalUsed": "إجمالي الاستخدامات",
+    "noCoupons": "لا توجد كوبونات بعد",
+    "expired": "منتهي",
+    "exhausted": "استُنفد",
+    "off": "خصم",
+    "uses": "استخدامات",
+    "discount": "الخصم",
+    "type": {
+      "percentage": "نسبة مئوية (%)",
+      "fixed": "مبلغ ثابت (ر.س)"
+    },
+    "stats": {
+      "total": "الإجمالي",
+      "active": "نشطة",
+      "used": "إجمالي الاستخدامات"
+    },
+    "form": {
+      "code": "رمز الكوبون",
+      "description": "الوصف",
+      "type": "النوع",
+      "value": "القيمة",
+      "minOrder": "الحد الأدنى للطلب (ر.س)",
+      "maxUses": "الحد الأقصى للاستخدام",
+      "validFrom": "صالح من",
+      "validUntil": "صالح حتى"
+    },
+    "toast": {
+      "created": "تم إنشاء الكوبون",
+      "deleted": "تم حذف الكوبون",
+      "copied": "تم نسخ الرمز",
+      "codeTaken": "الرمز موجود مسبقاً"
+    }
+  },
+  "tables": {
+    "title": "إدارة الطاولات",
+    "addTable": "إضافة طاولة",
+    "addTitle": "طاولة جديدة",
+    "newReservation": "حجز جديد",
+    "noTables": "لا توجد طاولات مضافة",
+    "noReservations": "لا توجد حجوزات",
+    "tableNum": "طاولة",
+    "selectTable": "اختر طاولة",
+    "mins": "د",
+    "clean": "تنظيف",
+    "free": "تحرير",
+    "seat": "جلوس الضيوف",
+    "seatTitle": "تعيين طاولة",
+    "markReady": "تعيين كجاهزة",
+    "confirmReservation": "تأكيد الحجز",
+    "tabs": {
+      "map": "خريطة القاعة",
+      "reservations": "الحجوزات"
+    },
+    "status": {
+      "available": "متاحة",
+      "occupied": "مشغولة",
+      "needsCleaning": "تحتاج تنظيف",
+      "reserved": "محجوزة",
+      "disabled": "معطلة"
+    },
+    "resStatus": {
+      "pending": "معلق",
+      "confirmed": "مؤكد",
+      "seated": "جالسون",
+      "cancelled": "ملغي"
+    },
+    "shapes": {
+      "rectangle": "مستطيل",
+      "circle": "دائرة",
+      "square": "مربع"
+    },
+    "form": {
+      "number": "رقم الطاولة",
+      "capacity": "السعة",
+      "section": "القسم",
+      "shape": "الشكل",
+      "customerName": "اسم العميل",
+      "guestCount": "عدد الضيوف",
+      "phone": "الهاتف",
+      "time": "وقت الحجز"
+    },
+    "toast": {
+      "created": "تم إضافة الطاولة",
+      "numberTaken": "رقم الطاولة موجود مسبقاً",
+      "seated": "تم تعيين الضيوف",
+      "cleared": "تم تحرير الطاولة",
+      "reserved": "تم تأكيد الحجز"
+    }
+  },
+  "billing": {
+    "title": "الاشتراك والفواتير",
+    "subtitle": "إدارة خطتك وتفاصيل الفواتير",
+    "currentPlan": "خطتك الحالية",
+    "usage": "الاستخدام",
+    "upgrade": "ترقية الخطة",
+    "manage": "إدارة الاشتراك",
+    "subscribe": "اشترك",
+    "upgradeNow": "ترقية الآن",
+    "contactSales": "تواصل مع المبيعات",
+    "nav": "الفواتير",
+    "status": {
+      "active": "نشط",
+      "trial": "تجريبي",
+      "expired": "منتهي",
+      "suspended": "موقوف"
+    },
+    "plans": {
+      "starter": "المبتدئ",
+      "pro": "الاحترافي",
+      "enterprise": "المؤسسي"
+    },
+    "limits": {
+      "branches": "{{used}} / {{max}} فروع",
+      "branchesUnlimited": "{{used}} / ∞ فروع",
+      "users": "{{used}} / {{max}} مستخدمين",
+      "usersUnlimited": "{{used}} / ∞ مستخدمين"
+    },
+    "compare": {
+      "title": "اختر خطتك",
+      "perMonth": "/ شهر",
+      "current": "الخطة الحالية",
+      "select": "اختر الخطة",
+      "features": {
+        "branches": "الفروع",
+        "users": "المستخدمون",
+        "support": "الدعم",
+        "analytics": "التحليلات",
+        "api": "الوصول للـ API"
+      },
+      "supportLevels": {
+        "starter": "بريد إلكتروني",
+        "pro": "أولوية",
+        "enterprise": "مخصص"
+      },
+      "analyticsLevels": {
+        "starter": "أساسي",
+        "pro": "متقدم",
+        "enterprise": "متكامل"
+      }
+    },
+    "toast": {
+      "checkoutError": "فشل بدء عملية الدفع. هل Stripe مفعّل؟",
+      "portalError": "فشل فتح بوابة الفواتير.",
+      "successTitle": "تم تحديث الاشتراك!",
+      "successDesc": "تم تحديث خطتك بنجاح."
+    },
+    "noStripe": "Stripe غير مفعّل. قم بإعداد STRIPE_SECRET_KEY لتفعيل الفواتير.",
+    "expiresAt": "يتجدد",
+    "unlimited": "غير محدود"
+  },
+  "common": {
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "save": "حفظ",
+    "add": "إضافة",
+    "edit": "تعديل",
+    "search": "بحث",
+    "loading": "جارٍ التحميل...",
+    "noData": "لا توجد بيانات",
+    "sar": "ر.س",
+    "inactive": "غير نشط"
+  },
+  "autoLock": {
+    "title": "الجلسة مقفلة",
+    "enterPin": "أدخل رمز PIN للمتابعة",
+    "invalidPin": "رمز PIN غير صحيح",
+    "error": "فشل التحقق"
+  },
+  "smartLock": {
+    "title": "تفويض المدير",
+    "action": "الإجراء",
+    "desc": "يجب على {{name}} تفويض هذا الإجراء",
+    "password": "كلمة المرور",
+    "passwordPlaceholder": "كلمة مرور المدير",
+    "verify": "تحقق",
+    "invalid": "بيانات الاعتماد غير صحيحة",
+    "error": "فشل التحقق"
+  },
+  "quickSwitch": {
+    "title": "تبديل سريع",
+    "selectUser": "اختر مستخدماً للتبديل إليه",
+    "enterPin": "أدخل PIN للتأكيد",
+    "invalidPin": "رمز PIN غير صحيح",
+    "error": "فشل التبديل",
+    "switched": "تم التبديل إلى {{name}}",
+    "back": "رجوع",
+    "noPinTitle": "لم يُعيَّن PIN",
+    "noPinDesc": "لم يُعيَّن رمز PIN لهذا الموظف. يرجى طلب من المدير تعيين PIN من صفحة إدارة الموظفين ليتمكن من تسجيل الدخول."
+  },
+  "pwStrength": {
+    "weak": "ضعيفة",
+    "fair": "مقبولة",
+    "good": "جيدة",
+    "strong": "قوية"
+  },
+  "shifts": {
+    "title": "شفتات الكاشير",
+    "subtitle": "تتبع جلسات العمل والمبيعات",
+    "activeShift": "الشفت الحالي",
+    "startedAt": "بدأ في",
+    "startShift": "بدء الشفت",
+    "endShift": "إنهاء الشفت",
+    "noActive": "لا يوجد شفت نشط",
+    "startPrompt": "ابدأ شفتك لتتبع المبيعات والطلبات",
+    "history": "سجل الشفتات",
+    "noHistory": "لا توجد شفتات مغلقة بعد",
+    "orders": "الطلبات",
+    "sales": "المبيعات",
+    "returns": "المرتجعات",
+    "discounts": "الخصومات",
+    "cancellations": "الإلغاءات"
+  },
+  "pin": {
+    "set": "تعيين PIN",
+    "change": "تغيير PIN",
+    "clear": "إزالة PIN",
+    "placeholder": "6 أرقام",
+    "success": "تم تحديث PIN",
+    "error": "فشل تحديث PIN",
+    "label": "رمز PIN للكاشير (6 أرقام)"
+  },
+  "masterPassword": {
+    "title": "كلمة المرور الرئيسية",
+    "subtitle": "تحمي العمليات الحساسة",
+    "status": "الحالة",
+    "active": "نشطة",
+    "notSet": "غير مُعيَّنة",
+    "create": "إنشاء كلمة المرور الرئيسية",
+    "change": "تغيير كلمة المرور الرئيسية",
+    "created": "تم إنشاء كلمة المرور الرئيسية",
+    "changed": "تم تغيير كلمة المرور الرئيسية",
+    "createFailed": "فشل إنشاء كلمة المرور الرئيسية",
+    "changeFailed": "فشل تغيير كلمة المرور الرئيسية",
+    "currentPassword": "كلمة المرور الحالية",
+    "newPassword": "كلمة المرور الجديدة (8 أحرف على الأقل)",
+    "confirmPassword": "تأكيد كلمة المرور",
+    "mismatch": "كلمتا المرور غير متطابقتان",
+    "minLength": "الحد الأدنى 8 أحرف",
+    "backupCodes": "رموز الاسترداد",
+    "backupCodesInfo": "احتفظ بهذه الرموز في مكان آمن. كل رمز يُستخدم مرة واحدة فقط.",
+    "copyCodes": "نسخ الرموز",
+    "savedClose": "تم الحفظ، إغلاق",
+    "createdAt": "تاريخ الإنشاء",
+    "lastChanged": "آخر تغيير",
+    "usageCount": "مرات الاستخدام",
+    "incorrect": "كلمة المرور الحالية خاطئة",
+    "verify": "التحقق من كلمة المرور الرئيسية",
+    "verifyPrompt": "أدخل كلمة المرور الرئيسية للمتابعة",
+    "verifyFailed": "كلمة المرور الرئيسية خاطئة",
+    "notConfigured": "لم تُعيَّن كلمة مرور رئيسية لهذا المستأجر"
+  },
+  "gates": {
+    "title": "بوابات الصلاحيات",
+    "subtitle": "تحكم في العمليات التي تتطلب كلمة المرور الرئيسية",
+    "info": "بوابات الصلاحيات تحدد العمليات التي تتطلب كلمة المرور الرئيسية قبل التنفيذ.",
+    "needsPassword": "يحتاج كلمة مرور",
+    "enabled": "نشط",
+    "disable": "تعطيل البوابة",
+    "enable": "تفعيل البوابة",
+    "disablePassword": "إيقاف متطلب كلمة المرور",
+    "enablePassword": "تفعيل متطلب كلمة المرور",
+    "updateFailed": "فشل التحديث",
+    "critical": "حرج",
+    "high": "عالي",
+    "medium": "متوسط",
+    "low": "منخفض"
+  },
+  "session": {
+    "expiringSoon": "الجلسة ستنتهي قريباً",
+    "expiringSoonDesc": "ستنتهي جلستك قريباً — يرجى تسجيل الدخول مرة أخرى",
+    "refreshFailed": "فشل تجديد الجلسة",
+    "refreshFailedDesc": "تعذّر تجديد جلستك — يرجى تسجيل الدخول مرة أخرى",
+    "timeLeft": "الوقت المتبقي في الجلسة",
+    "idleWarning": "هل ما زلت هنا؟",
+    "idleWarningDesc": "لم يُسجَّل أي نشاط منذ فترة. سيتم تسجيل خروجك تلقائياً خلال دقيقتين.",
+    "stayLoggedIn": "البقاء مسجلاً"
+  }
+}

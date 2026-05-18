@@ -1,0 +1,43 @@
+uploads = []
+
+[[generated]]
+id = "Iq5nz0BLR0uIa4tEBFIzy"
+uri = "file://artifacts/foodoro-mobile/assets/images/icon.png"
+type = "image"
+title = "generated_image"
+
+[[outputs]]
+id = "SFWtJvUn4-jI0gsbQmuVC"
+uri = "file://foodoro-source.zip"
+type = "unspecified"
+title = "FOODORO — الكود المصدري الكامل (110 ملف)"
+
+[[outputs]]
+id = "ReBT1CrX6UtAbdDEgmPNJ"
+uri = "file://foodoro-full.tar.gz"
+type = "unspecified"
+title = "FOODORO — كامل ملفات المشروع"
+
+[[outputs]]
+id = "HlEFPbfw3b_GtpWtGTQDW"
+uri = "file://foodoro-system-20260514.tar.gz"
+type = "unspecified"
+title = "FOODORO System — Source Code (14 May 2026)"
+
+[[outputs]]
+id = "gwGFuhVoBZ1OO9mCU-npY"
+uri = "file://TECHNICAL_ROADMAP.md"
+type = "text"
+title = "FOODORO — Enterprise AI OS Technical Roadmap v1.0"
+
+[[outputs]]
+id = "vUYKIxEvqf67ipjxnvzYL"
+uri = "file://docs/FOODORO_SYSTEM_DOCUMENTATION.md"
+type = "text"
+title = "FOODORO — وثيقة النظام الكاملة"
+
+[[outputs]]
+id = "YvZ9m676A2ZJH4nsb471S"
+uri = "file://foodoro-system.tar.gz"
+type = "unspecified"
+title = "FOODORO — ملفات النظام الكاملة"

@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/foodoro-mobile/"
+title = "FOODORO Mobile"
+version = "1.0.0"
+id = "artifacts/foodoro-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/foodoro-mobile/" ]
+localPort = 25430
+
+[services.development]
+run = "pnpm --filter @workspace/foodoro-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/foodoro-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/foodoro-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "25430"
+BASE_PATH = "/foodoro-mobile/"
