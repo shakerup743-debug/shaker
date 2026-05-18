@@ -29,7 +29,7 @@ function buildGuestUrl(baseUrl: string | undefined, token: string): string {
 /* ──────────────────────────────────────────────────────────
    POST /api/qr  — generate a new token for a table
 ────────────────────────────────────────────────────────── */
-router.post("/qr", authorize("admin"), async (req, res): Promise<void> => {
+router.post("/qr", authorize("admin", "owner"), async (req, res): Promise<void> => {
   const tenantId = req.tenantId!;
   const { tableId, baseUrl, expiresAt, notes } = req.body as {
     tableId: number;
@@ -138,7 +138,7 @@ router.patch("/qr/:id", async (req, res): Promise<void> => {
 /* ──────────────────────────────────────────────────────────
    DELETE /api/qr/:id  — delete token
 ────────────────────────────────────────────────────────── */
-router.delete("/qr/:id", authorize("admin"), async (req, res): Promise<void> => {
+router.delete("/qr/:id", authorize("admin", "owner"), async (req, res): Promise<void> => {
   const tenantId = req.tenantId!;
   const id = parseInt(req.params["id"] as string, 10);
 
@@ -154,7 +154,7 @@ router.delete("/qr/:id", authorize("admin"), async (req, res): Promise<void> => 
 /* ──────────────────────────────────────────────────────────
    POST /api/qr/:tableId/regenerate  — deactivate old, create new
 ────────────────────────────────────────────────────────── */
-router.post("/qr/:tableId/regenerate", authorize("admin"), async (req, res): Promise<void> => {
+router.post("/qr/:tableId/regenerate", authorize("admin", "owner"), async (req, res): Promise<void> => {
   const tenantId = req.tenantId!;
   const tableId = parseInt(req.params["tableId"] as string, 10);
   const { baseUrl, notes } = req.body as { baseUrl?: string; notes?: string | null };

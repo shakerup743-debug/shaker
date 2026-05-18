@@ -19,7 +19,7 @@ router.get("/tables", async (req, res): Promise<void> => {
 });
 
 // POST /tables
-router.post("/tables", authorize("admin"), async (req, res): Promise<void> => {
+router.post("/tables", authorize("admin", "owner"), async (req, res): Promise<void> => {
   const { number, capacity, posX, posY, shape, section } = req.body as {
     number: string; capacity?: number; posX?: number; posY?: number; shape?: string; section?: string;
   };
@@ -86,7 +86,7 @@ router.patch("/tables/:id", async (req, res): Promise<void> => {
 });
 
 // DELETE /tables/:id
-router.delete("/tables/:id", authorize("admin"), async (req, res): Promise<void> => {
+router.delete("/tables/:id", authorize("admin", "owner"), async (req, res): Promise<void> => {
   const id = parseInt(req.params["id"] as string, 10);
   const tid = req.tenantId!;
   await req.db!.delete(restaurantTablesTable)

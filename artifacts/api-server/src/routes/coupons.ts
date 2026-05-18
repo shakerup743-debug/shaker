@@ -78,7 +78,7 @@ router.post("/coupons/validate", async (req, res): Promise<void> => {
 });
 
 // POST /coupons
-router.post("/coupons", authorize("admin"), async (req, res): Promise<void> => {
+router.post("/coupons", authorize("admin", "owner"), async (req, res): Promise<void> => {
   const { code, description, type, value, minOrderAmount, maxUses, maxUsesPerCustomer, validFrom, validUntil } = req.body as {
     code: string; description?: string; type: "percentage" | "fixed"; value: number;
     minOrderAmount?: number; maxUses?: number; maxUsesPerCustomer?: number;
@@ -109,7 +109,7 @@ router.post("/coupons", authorize("admin"), async (req, res): Promise<void> => {
 });
 
 // PATCH /coupons/:id
-router.patch("/coupons/:id", authorize("admin"), async (req, res): Promise<void> => {
+router.patch("/coupons/:id", authorize("admin", "owner"), async (req, res): Promise<void> => {
   const id = parseInt(req.params["id"] as string, 10);
   const tid = req.tenantId!;
   const { description, isActive, maxUses, validUntil } = req.body as Partial<{
@@ -126,7 +126,7 @@ router.patch("/coupons/:id", authorize("admin"), async (req, res): Promise<void>
 });
 
 // DELETE /coupons/:id
-router.delete("/coupons/:id", authorize("admin"), async (req, res): Promise<void> => {
+router.delete("/coupons/:id", authorize("admin", "owner"), async (req, res): Promise<void> => {
   const id = parseInt(req.params["id"] as string, 10);
   const tid = req.tenantId!;
   await req.db!.delete(couponsTable)

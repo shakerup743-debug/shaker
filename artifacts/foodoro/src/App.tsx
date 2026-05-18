@@ -12,6 +12,7 @@ import { Layout } from "@/components/layout";
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────
 const SignInPage              = lazy(() => import("@/pages/sign-in"));
+const SignUpPage              = lazy(() => import("@/pages/sign-up"));
 const PosPage                 = lazy(() => import("@/pages/pos"));
 const KitchenPage             = lazy(() => import("@/pages/kitchen"));
 const ProductsPage            = lazy(() => import("@/pages/products"));
@@ -114,6 +115,13 @@ function AppRoutes() {
         {() => (
           <Suspense fallback={<PageLoader />}>
             <SignInPage />
+          </Suspense>
+        )}
+      </Route>
+      <Route path="/sign-up">
+        {() => (
+          <Suspense fallback={<PageLoader />}>
+            <SignUpPage />
           </Suspense>
         )}
       </Route>

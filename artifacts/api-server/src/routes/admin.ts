@@ -5,7 +5,7 @@ import { authorize } from "../middleware/authorize.js";
 
 const router = Router();
 
-router.get("/admin/audit-logs", authorize("admin"), async (req, res): Promise<void> => {
+router.get("/admin/audit-logs", authorize("admin", "owner"), async (req, res): Promise<void> => {
   const { from, to, action, limit } = req.query as {
     from?: string;
     to?: string;

@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health.js";
 import authRouter from "./auth.js";
+import signupRouter from "./signup.js";
+import googleAuthRouter from "./google-auth.js";
 import sseRouter from "./sse.js";
 import publicRouter from "./public.js";
 import qrRouter from "./qr.js";
@@ -39,6 +41,8 @@ const router: IRouter = Router();
 // ── Public (no auth required) ────────────────────────────────
 router.use(healthRouter);
 router.use(authRouter);
+router.use(signupRouter);
+router.use(googleAuthRouter);
 router.use(sseRouter);
 router.use(publicRouter);
 router.use(openapiRouter);

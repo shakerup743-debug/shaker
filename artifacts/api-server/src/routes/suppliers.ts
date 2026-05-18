@@ -62,7 +62,7 @@ router.patch("/suppliers/:id", authorize("admin", "inventory_manager"), async (r
 });
 
 // DELETE /suppliers/:id
-router.delete("/suppliers/:id", authorize("admin"), async (req, res): Promise<void> => {
+router.delete("/suppliers/:id", authorize("admin", "owner"), async (req, res): Promise<void> => {
   const id = parseInt(req.params["id"] as string, 10);
   await db.delete(suppliersTable).where(eq(suppliersTable.id, id));
   await logAudit(req, "DELETE", "supplier", String(id));

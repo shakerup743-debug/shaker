@@ -14,6 +14,14 @@ import {
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const TOKEN_KEY = "foodoro-token";
+
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem(TOKEN_KEY);
+  return token
+    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+    : { "Content-Type": "application/json" };
+}
 
 // Stripe publishable key — used to initialize Stripe.js if needed in future
 // (currently billing redirects to Stripe-hosted Checkout, so only backend key is needed)
@@ -31,19 +39,25 @@ interface BillingStatus {
   };
 }
 
-async function fetchBillingStatus(): Promise<BillingStatus> {
+async function fetchBillingStatus(): Promise<BillingStatus | null> {
   const res = await fetch(`${BASE}/api/billing/status`, {
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     credentials: "include",
   });
+  if (res.status === 403 || res.status === 402) {
+    // Plan-gated endpoint; show fallback UI
+    return null;
+  }
   if (!res.ok) throw new Error("Failed to fetch billing status");
-  return res.json() as Promise<BillingStatus>;
+  const data = (await res.json()) as Partial<BillingStatus> & { error?: string };
+  if (data.error) return null;
+  return data as BillingStatus;
 }
 
 async function startCheckout(plan: string): Promise<{ url: string }> {
   const res = await fetch(`${BASE}/api/billing/checkout`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     credentials: "include",
     body: JSON.stringify({ plan }),
   });
@@ -57,7 +71,7 @@ async function startCheckout(plan: string): Promise<{ url: string }> {
 async function openPortal(): Promise<{ url: string }> {
   const res = await fetch(`${BASE}/api/billing/portal`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(),
     credentials: "include",
   });
   if (!res.ok) {
@@ -162,7 +176,7 @@ export default function BillingPage() {
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
 
-  const { data, isLoading, refetch } = useQuery<BillingStatus>({
+  const { data, isLoading, refetch } = useQuery<BillingStatus | null>({
     queryKey: ["billing-status"],
     queryFn: fetchBillingStatus,
     staleTime: 30_000,
@@ -279,7 +293,7 @@ export default function BillingPage() {
           </div>
 
           {/* Usage */}
-          {data && (
+          {data?.usage && (
             <div className="space-y-3">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {t("billing.usage")}
