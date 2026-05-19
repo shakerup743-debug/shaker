@@ -13,6 +13,8 @@ if (!process.env.DATABASE_URL) {
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool, { schema });
 
+export * from "./plans";
+
 /**
  * Create a Drizzle instance bound to a specific pool PoolClient.
  * Used by requireTenant middleware to create per-request tenant-scoped
