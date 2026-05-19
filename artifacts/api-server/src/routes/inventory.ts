@@ -11,12 +11,15 @@ import {
 } from "@workspace/api-zod";
 import { logAudit } from "../lib/audit.js";
 import { requireTenant } from "../middleware/require-tenant.js";
+import { checkFeature } from "../middleware/check-feature.js";
 import { sseBroker } from "../lib/sse-broker.js";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
 
 router.use(requireTenant);
+// Inventory is a Growth+ feature
+router.use(checkFeature("inventory"));
 
 type TenantDb = NonNullable<Express.Request["db"]>;
 

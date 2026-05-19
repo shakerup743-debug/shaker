@@ -1,28 +1,43 @@
 # FOODPRO POS — Test Credentials
 
-## Demo Account (للمقابلة المستثمر)
+## Demo Account
 - **Email**: `demo@foodpro.com`
 - **Password**: `Demo2026!`
 - **Restaurant**: FoodPro Demo
-- **Plan**: Enterprise (كل الميزات مفعلة)
+- **Plan**: Enterprise / Active (1-year)
 - **URL**: https://d40ff25a-6729-4cca-ab4c-05bad06cdee1.preview.emergentagent.com
-
-## كيف تنشئ حساباً جديداً:
-1. افتح `/sign-up`
-2. عبئ اسم المطعم + بياناتك
-3. تصبح Owner بصلاحيات كاملة
 
 ## Database
 - postgresql://foodoro:foodoro123@localhost:5432/foodoro_db
+- App role: `foodoro_app` (used by RLS)
 
-## Services
-- **Backend** (Express 5): port 8001
-- **Frontend** (Vite production build): port 3000
-- **AI Sidecar** (Python FastAPI + emergentintegrations): port 9000 (internal only)
-- **PostgreSQL**: port 5432
-- **MongoDB**: port 27017
+## Services (supervisor)
+- `backend`     — Express 5 on :8001
+- `frontend`    — Vite preview on :3000  (build: `cd /app/artifacts/foodoro && pnpm run build && sudo supervisorctl restart frontend`)
+- `ai-sidecar`  — Python FastAPI on :9000
+- `mongodb`     — :27017 (legacy, not used by app)
+
+After backend code changes: `cd /app/artifacts/api-server && pnpm run build && sudo supervisorctl restart backend`
+
+## Subscription endpoints (live)
+- **Public**:
+  - `GET  /api/subscription/plans`           — plan catalog
+  - `POST /api/paddle/webhook`               — Paddle webhook (raw body, HMAC verified)
+- **Authenticated**:
+  - `GET  /api/subscription`                  — current plan + usage + daysLeft
+  - `POST /api/subscription/checkout`         — create Paddle checkout (mocked when keys absent)
+  - `POST /api/subscription/upgrade`          — immediate upgrade
+  - `POST /api/subscription/downgrade`        — scheduled at period end
+  - `POST /api/subscription/cancel`/`/resume`
+  - `GET  /api/subscription/invoices`
+  - `GET  /api/subscription/notifications`
+- **Uploads**:
+  - `POST /api/uploads/image`                — multipart, max 4 MB
+  - `POST /api/uploads/image-base64`         — `{ dataUrl }`
+- **Leads (public)**:
+  - `POST /api/leads`                        — marketing-form submission
 
 ## AI Configuration
-- Powered by Claude Haiku 4.5 via Emergent Universal LLM Key
-- Key stored in supervisor env + .env files
-- Sidecar at `/app/ai-sidecar/app.py`
+- **Model**: Claude Haiku 4.5 via Emergent Universal LLM Key
+- Endpoint: `/api/ai/chat`
+- Budget exhaustion → HTTP 402, `{"error":"AI_BUDGET_EXCEEDED"}`

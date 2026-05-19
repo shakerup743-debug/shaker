@@ -8,17 +8,17 @@ import { logAudit } from "../lib/audit.js";
 
 const router = Router();
 
-// Webhooks are a Pro+ feature
-router.use(requirePlan("pro"));
+// Webhooks management is a Pro+ feature — apply requirePlan per-route below.
+const proOnly = requirePlan("pro");
 
 /* ── List webhooks ── */
-router.get("/webhooks", authorize("admin", "owner"), async (_req, res) => {
+router.get("/webhooks", proOnly, authorize("admin", "owner"), async (_req, res) => {
   const hooks = await db.select().from(webhooksTable).orderBy(desc(webhooksTable.createdAt));
   res.json(hooks);
 });
 
 /* ── Create webhook ── */
-router.post("/webhooks", authorize("admin", "owner"), async (req, res) => {
+router.post("/webhooks", proOnly, authorize("admin", "owner"), async (req, res) => {
   const { name, url, events, secret } = req.body as {
     name?: string; url?: string; events?: string[]; secret?: string;
   };
@@ -32,7 +32,7 @@ router.post("/webhooks", authorize("admin", "owner"), async (req, res) => {
 });
 
 /* ── Update webhook ── */
-router.patch("/webhooks/:id", authorize("admin", "owner"), async (req, res) => {
+router.patch("/webhooks/:id", proOnly, authorize("admin", "owner"), async (req, res) => {
   const id = Number(req.params.id);
   const { name, url, events, secret, isActive } = req.body as {
     name?: string; url?: string; events?: string[]; secret?: string; isActive?: boolean;
@@ -50,7 +50,7 @@ router.patch("/webhooks/:id", authorize("admin", "owner"), async (req, res) => {
 });
 
 /* ── Delete webhook ── */
-router.delete("/webhooks/:id", authorize("admin", "owner"), async (req, res) => {
+router.delete("/webhooks/:id", proOnly, authorize("admin", "owner"), async (req, res) => {
   const id = Number(req.params.id);
   await db.delete(webhookLogsTable).where(eq(webhookLogsTable.webhookId, id));
   await db.delete(webhooksTable).where(eq(webhooksTable.id, id));
@@ -59,7 +59,7 @@ router.delete("/webhooks/:id", authorize("admin", "owner"), async (req, res) => 
 });
 
 /* ── Test webhook ── */
-router.post("/webhooks/:id/test", authorize("admin", "owner"), async (req, res) => {
+router.post("/webhooks/:id/test", proOnly, authorize("admin", "owner"), async (req, res) => {
   const id = Number(req.params.id);
   const [hook] = await db.select().from(webhooksTable).where(eq(webhooksTable.id, id));
   if (!hook) { res.status(404).json({ error: "Not found" }); return; }
@@ -95,7 +95,7 @@ router.post("/webhooks/:id/test", authorize("admin", "owner"), async (req, res) 
 });
 
 /* ── Get webhook logs ── */
-router.get("/webhooks/:id/logs", authorize("admin", "owner"), async (req, res) => {
+router.get("/webhooks/:id/logs", proOnly, authorize("admin", "owner"), async (req, res) => {
   const id = Number(req.params.id);
   const logs = await db.select().from(webhookLogsTable).where(eq(webhookLogsTable.webhookId, id)).orderBy(desc(webhookLogsTable.createdAt)).limit(50);
   res.json(logs);

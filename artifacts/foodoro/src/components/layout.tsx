@@ -17,6 +17,7 @@ import { useCurrency } from "@/contexts/currency";
 import { NotificationBell, useNotifications } from "@/components/notifications";
 import { useSse } from "@/hooks/use-sse";
 import { AiChatBot } from "@/components/ai-chat-bot";
+import { SubscriptionBanner } from "@/components/subscription-banner";
 
 const FOODPRO_TOKEN_KEY = "foodoro-token";
 
@@ -701,7 +702,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       />
 
       {/* ── Main Content ─────────────────────────────────────── */}
-      <main className="flex-1 overflow-hidden relative z-10">{children}</main>
+      <main className="flex-1 overflow-hidden relative z-10 flex flex-col">
+        <SubscriptionBanner />
+        <div className="flex-1 overflow-hidden">{children}</div>
+      </main>
 
       {/* ── Floating AI Assistant ────────────────────────────── */}
       <AiChatBot />

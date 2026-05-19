@@ -4,6 +4,10 @@ import { db } from "@workspace/db";
 import { usersTable, tenantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { signToken } from "../lib/jwt.js";
+import {
+  validateBusinessType,
+  businessTypeLabel,
+} from "../lib/business-types.js";
 
 const router = Router();
 
@@ -13,6 +17,8 @@ const router = Router();
  *
  * The first user to sign up becomes the OWNER of their own newly-created tenant.
  * Each new email creates a fresh tenant — no two restaurants share data.
+ *
+ * Business type MUST be restaurant-related — non-restaurant signups are rejected.
  */
 router.post("/auth/signup", async (req, res): Promise<void> => {
   const body = req.body as {
@@ -20,17 +26,32 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     password?: string;
     name?: string;
     restaurantName?: string;
+    businessType?: string;
+    businessTypeCustom?: string;
+    lang?: "ar" | "en";
   };
 
   const email = body.email?.toLowerCase().trim();
   const password = body.password;
   const fullName = body.name?.trim();
   const restaurantName = body.restaurantName?.trim();
+  const businessType = body.businessType?.trim();
+  const businessTypeCustom = body.businessTypeCustom?.trim();
+  const lang: "ar" | "en" = body.lang === "en" ? "en" : "ar";
 
-  if (!email || !password || !fullName || !restaurantName) {
+  if (!email || !password || !fullName || !restaurantName || !businessType) {
     res.status(400).json({
-      error: "All fields are required: email, password, name, restaurantName",
+      error:
+        lang === "ar"
+          ? "كل الحقول مطلوبة: البريد، كلمة المرور، الاسم، اسم المطعم، نوع النشاط."
+          : "All fields are required: email, password, name, restaurantName, businessType",
     });
+    return;
+  }
+
+  const btCheck = validateBusinessType(businessType, businessTypeCustom, lang);
+  if (!btCheck.ok) {
+    res.status(400).json({ error: btCheck.reason });
     return;
   }
 
@@ -79,8 +100,13 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
       taxRate: "15",
       country: "SA",
       timezone: "Asia/Riyadh",
-      subscriptionPlan: "enterprise",
-      subscriptionStatus: "active",
+      businessType:
+        businessType === "other"
+          ? businessTypeCustom!
+          : businessTypeLabel(businessType, undefined, "ar"),
+      subscriptionPlan: "starter",
+      subscriptionStatus: "trial",
+      subscriptionExpiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day trial
       isActive: true,
     })
     .returning();
@@ -109,6 +135,23 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     ]);
   } catch {
     // non-fatal — owner can create categories manually
+  }
+
+  // Create a 14-day TRIAL subscription so the SaaS billing flow works out of the box.
+  try {
+    const { sql } = await import("drizzle-orm");
+    const { TRIAL_DAYS } = await import("@workspace/db");
+    await db.execute(sql`
+      INSERT INTO subscriptions (tenant_id, plan, status, trial_ends_at)
+      VALUES (${newTenant!.id}, 'starter', 'trial', NOW() + INTERVAL '${sql.raw(String(TRIAL_DAYS))} days')
+      ON CONFLICT (tenant_id) DO NOTHING
+    `);
+    await db.execute(sql`
+      INSERT INTO billing_events (tenant_id, event_type, payload)
+      VALUES (${newTenant!.id}, 'trial_started', ${JSON.stringify({ days: TRIAL_DAYS, source: "signup" })})
+    `);
+  } catch {
+    // non-fatal — subscription endpoint will create on first access
   }
 
   // Issue JWT

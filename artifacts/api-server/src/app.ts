@@ -58,6 +58,19 @@ app.post(
   (req, res) => void stripeWebhookHandler(req, res),
 );
 
+// Paddle webhook — must be raw body for HMAC verification
+app.post(
+  "/api/paddle/webhook",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  async (req, res) => {
+    const { paddleWebhookHandler } = await import("./routes/subscription.js");
+    await paddleWebhookHandler(req, res);
+  },
+);
+
+// Serve uploaded product images statically
+app.use("/uploads", express.static("/app/uploads", { maxAge: "30d", fallthrough: true }));
+
 app.use(
   cors({
     origin: true,

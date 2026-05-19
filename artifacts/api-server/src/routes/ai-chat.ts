@@ -38,7 +38,14 @@ router.post("/ai/chat", authenticate, async (req: Request, res: Response): Promi
     if (!resp.ok) {
       const text = await resp.text();
       logger.warn({ status: resp.status, body: text.slice(0, 300) }, "AI sidecar error");
-      res.status(502).json({ error: "AI service error" });
+
+      // Detect budget-exceeded so the frontend can show a friendly message.
+      const isBudget = /budget|exceeded|insufficient|quota/i.test(text);
+      res.status(isBudget ? 402 : 502).json({
+        error: isBudget
+          ? "AI_BUDGET_EXCEEDED"
+          : "AI service temporarily unavailable",
+      });
       return;
     }
 

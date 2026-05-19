@@ -115,7 +115,14 @@ export function AiChatBot() {
       });
       if (!res.ok) {
         const errBody = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(errBody.error ?? "AI service error");
+        const code = errBody.error ?? "AI service error";
+        let friendly = code;
+        if (code === "AI_BUDGET_EXCEEDED") {
+          friendly = isAr
+            ? "💳 رصيد الذكاء الاصطناعي نفد. الرجاء التواصل مع الإدارة لإعادة الشحن."
+            : "💳 The AI credit budget is exhausted. Please contact the administrator to top it up.";
+        }
+        throw new Error(friendly);
       }
       const data = (await res.json()) as { reply: string };
       setMessages([...next, { role: "assistant", content: data.reply || "..." }]);

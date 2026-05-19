@@ -14,6 +14,7 @@ export const tenantsTable = pgTable("tenants", {
   taxInclusive: boolean("tax_inclusive").notNull().default(true),
   country: text("country").notNull().default("SA"),
   timezone: text("timezone").notNull().default("Asia/Riyadh"),
+  businessType: text("business_type"),
   subscriptionPlan: text("subscription_plan").notNull().default("starter"),
   subscriptionStatus: text("subscription_status").notNull().default("active"),
   subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),

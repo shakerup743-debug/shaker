@@ -32,14 +32,48 @@ function ProductForm({
 }: {
   initial?: Partial<Product>;
   categories: { id: number; name: string }[];
-  onSubmit: (data: { name: string; price: number; categoryId: number; description?: string }) => void;
+  onSubmit: (data: { name: string; price: number; categoryId: number; description?: string; imageUrl?: string | null }) => void;
   loading: boolean;
 }) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [name, setName] = useState(initial?.name ?? "");
   const [price, setPrice] = useState(String(initial?.price ?? ""));
   const [categoryId, setCategoryId] = useState(String(initial?.categoryId ?? ""));
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [imageUrl, setImageUrl] = useState<string | null>(initial?.imageUrl ?? null);
+  const [imageUrlInput, setImageUrlInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const uploadFile = async (file: File) => {
+    if (file.size > 4 * 1024 * 1024) { toast({ title: "حجم الصورة أكبر من 4 ميغا", variant: "destructive" }); return; }
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const token = localStorage.getItem("foodoro-token");
+      const res = await fetch("/api/uploads/image", {
+        method: "POST", body: fd,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) throw new Error(data.error ?? "فشل الرفع");
+      setImageUrl(data.url);
+      toast({ title: "تم رفع الصورة" });
+    } catch (e) {
+      toast({ title: (e as Error).message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const useUrl = () => {
+    const u = imageUrlInput.trim();
+    if (!u) return;
+    if (!/^https?:\/\//i.test(u)) { toast({ title: "أدخل رابط https صحيح", variant: "destructive" }); return; }
+    setImageUrl(u);
+    setImageUrlInput("");
+  };
 
   return (
     <div className="space-y-3">
@@ -47,6 +81,58 @@ function ProductForm({
         <Label className="text-xs text-muted-foreground">{t("products.form.name")}</Label>
         <Input className="bg-background border-border" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("products.form.namePlaceholder")} data-testid="input-product-name" />
       </div>
+
+      {/* صورة المنتج */}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">صورة المنتج (اختياري)</Label>
+        <div className="flex items-start gap-3">
+          {imageUrl ? (
+            <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-border bg-muted">
+              <img src={imageUrl} alt="product" className="w-full h-full object-cover" />
+              <button type="button"
+                onClick={() => setImageUrl(null)}
+                className="absolute top-0.5 end-0.5 w-5 h-5 rounded-full bg-black/60 text-white text-xs flex items-center justify-center"
+                aria-label="remove"
+                data-testid="remove-product-image">×</button>
+            </div>
+          ) : (
+            <div className="w-20 h-20 rounded-xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center text-[10px] text-muted-foreground text-center px-1">
+              بدون صورة
+            </div>
+          )}
+          <div className="flex-1 space-y-2">
+            <label className="block">
+              <span className="text-[11px] text-muted-foreground">رفع من جهازك (≤ 4 ميغا)</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadFile(f); e.target.value = ""; }}
+                disabled={uploading}
+                data-testid="input-product-image-file"
+                className="block w-full text-xs file:me-2 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:text-xs file:bg-primary file:text-white file:cursor-pointer mt-0.5"
+              />
+            </label>
+            <div className="flex gap-1.5">
+              <Input
+                placeholder="أو الصق رابط الصورة"
+                value={imageUrlInput}
+                onChange={(e) => setImageUrlInput(e.target.value)}
+                className="bg-background border-border text-xs h-9"
+                data-testid="input-product-image-url"
+              />
+              <button
+                type="button"
+                onClick={useUrl}
+                disabled={!imageUrlInput.trim()}
+                className="text-xs px-2.5 h-9 rounded-md bg-foreground/10 hover:bg-foreground/20 text-foreground disabled:opacity-40"
+                data-testid="apply-product-image-url"
+              >استخدم</button>
+            </div>
+            {uploading && <p className="text-[11px] text-primary">جاري الرفع…</p>}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">{t("products.form.price")}</Label>
@@ -73,7 +159,11 @@ function ProductForm({
       <button
         data-testid="button-save-product"
         disabled={!name || !price || !categoryId || loading}
-        onClick={() => onSubmit({ name, price: parseFloat(price), categoryId: parseInt(categoryId), description: description || undefined })}
+        onClick={() => onSubmit({
+          name, price: parseFloat(price), categoryId: parseInt(categoryId),
+          description: description || undefined,
+          imageUrl: imageUrl ?? undefined,
+        })}
         className="w-full h-11 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold text-sm transition-colors disabled:opacity-40"
       >
         {loading ? t("products.form.saving") : initial?.id ? t("products.form.update") : t("products.form.save")}
@@ -225,7 +315,7 @@ export default function ProductsPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
 
-  const handleCreate = async (data: { name: string; price: number; categoryId: number; description?: string }) => {
+  const handleCreate = async (data: { name: string; price: number; categoryId: number; description?: string; imageUrl?: string | null }) => {
     try {
       await createProduct.mutateAsync({ data });
       invalidate();
@@ -236,7 +326,7 @@ export default function ProductsPage() {
     }
   };
 
-  const handleUpdate = async (data: { name: string; price: number; categoryId: number; description?: string }) => {
+  const handleUpdate = async (data: { name: string; price: number; categoryId: number; description?: string; imageUrl?: string | null }) => {
     if (!editProduct) return;
     try {
       await updateProduct.mutateAsync({ id: editProduct.id, data });
@@ -340,9 +430,15 @@ export default function ProductsPage() {
                 className={`p-4 rounded-2xl border bg-card transition-all ${product.isActive ? "border-border" : "border-border opacity-50"}`}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center">
-                    <span className="text-primary font-bold">{product.name.charAt(0)}</span>
-                  </div>
+                  {product.imageUrl ? (
+                    <div className="w-9 h-9 rounded-xl overflow-hidden bg-muted border border-border">
+                      <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
+                    </div>
+                  ) : (
+                    <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center">
+                      <span className="text-primary font-bold">{product.name.charAt(0)}</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-1">
                     <button data-testid={`button-toggle-${product.id}`} onClick={() => handleToggle(product.id)} className="w-7 h-7 rounded-lg hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
                       {product.isActive ? <ToggleRight size={16} className="text-primary" /> : <ToggleLeft size={16} />}

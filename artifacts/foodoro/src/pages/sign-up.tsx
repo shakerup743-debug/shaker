@@ -2,6 +2,10 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import type { AuthUser } from "@/contexts/auth";
+import {
+  RESTAURANT_BUSINESS_TYPES,
+  validateBusinessType,
+} from "@/lib/business-types";
 import "@/i18n";
 
 const TOKEN_KEY = "foodoro-token";
@@ -14,6 +18,8 @@ export default function SignUpPage() {
 
   const [step, setStep] = useState<1 | 2>(1);
   const [restaurantName, setRestaurantName] = useState("");
+  const [businessType, setBusinessType] = useState("traditional");
+  const [businessTypeCustom, setBusinessTypeCustom] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,6 +38,15 @@ export default function SignUpPage() {
     setError(null);
     if (!restaurantName.trim()) {
       setError(isAr ? "اسم المطعم مطلوب" : "Restaurant name is required");
+      return;
+    }
+    const check = validateBusinessType(
+      businessType,
+      businessTypeCustom,
+      isAr ? "ar" : "en",
+    );
+    if (!check.ok) {
+      setError(check.reason ?? (isAr ? "نوع النشاط غير صالح" : "Invalid business type"));
       return;
     }
     setStep(2);
@@ -60,6 +75,9 @@ export default function SignUpPage() {
           password,
           name: fullName.trim(),
           restaurantName: restaurantName.trim(),
+          businessType,
+          businessTypeCustom: businessType === "other" ? businessTypeCustom.trim() : undefined,
+          lang: isAr ? "ar" : "en",
         }),
       });
 
@@ -146,6 +164,47 @@ export default function SignUpPage() {
                   data-testid="signup-restaurant-input"
                 />
               </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold text-gray-300">
+                  {isAr ? "نوع النشاط المطعمي" : "Restaurant business type"}
+                </label>
+                <select
+                  value={businessType}
+                  onChange={(e) => setBusinessType(e.target.value)}
+                  required
+                  className="bg-[#0B0F19] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#E67E22] focus:ring-2 focus:ring-[#E67E22]/20 transition-all"
+                  data-testid="signup-business-type-select"
+                >
+                  {RESTAURANT_BUSINESS_TYPES.map((bt) => (
+                    <option key={bt.slug} value={bt.slug} className="bg-[#1F2937]">
+                      {isAr ? bt.ar : bt.en}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-gray-500 mt-0.5">
+                  {isAr
+                    ? "FOODPRO مخصص للمطاعم فقط — لن نقبل أي نشاط آخر."
+                    : "FOODPRO is for restaurants only — non-restaurant businesses will be rejected."}
+                </p>
+              </div>
+
+              {businessType === "other" && (
+                <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <label className="text-xs font-semibold text-gray-300">
+                    {isAr ? "اكتب نوع نشاطك (مطعمي فقط)" : "Describe your restaurant"}
+                  </label>
+                  <input
+                    type="text"
+                    value={businessTypeCustom}
+                    onChange={(e) => setBusinessTypeCustom(e.target.value)}
+                    placeholder={isAr ? "مطعم منسف أردني، كنافة نابلسية…" : "Mediterranean Bistro, Mansaf restaurant…"}
+                    maxLength={80}
+                    className="bg-[#0B0F19] border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#E67E22] focus:ring-2 focus:ring-[#E67E22]/20 transition-all"
+                    data-testid="signup-business-type-custom-input"
+                  />
+                </div>
+              )}
 
               {error && (
                 <div className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">

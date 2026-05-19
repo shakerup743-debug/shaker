@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import healthRouter from "./health.js";
 import authRouter from "./auth.js";
 import signupRouter from "./signup.js";
+import leadsRouter from "./leads.js";
 import googleAuthRouter from "./google-auth.js";
 import sseRouter from "./sse.js";
 import publicRouter from "./public.js";
@@ -27,15 +28,19 @@ import loyaltyRouter from "./loyalty.js";
 import auditRouter from "./audit.js";
 import securityRouter from "./security.js";
 import billingRouter from "./billing.js";
+import subscriptionRouter from "./subscription.js";
 import cashierRouter from "./cashier.js";
 import pinRouter from "./pin.js";
 import masterPasswordRouter from "./master-password.js";
 import amendmentsRouter from "./amendments.js";
 import aiChatRouter from "./ai-chat.js";
 import openapiRouter from "./openapi.js";
+import uploadsRouter from "./uploads.js";
+import { PLANS, TRIAL_DAYS, isUnlimited } from "@workspace/db";
 import { authenticate } from "../middleware/authenticate.js";
 import { auditMiddleware } from "../middleware/audit-auto.js";
 import { requireTenant } from "../middleware/require-tenant.js";
+import { readOnlyGuard } from "../middleware/check-feature.js";
 
 const router: IRouter = Router();
 
@@ -43,10 +48,31 @@ const router: IRouter = Router();
 router.use(healthRouter);
 router.use(authRouter);
 router.use(signupRouter);
+router.use(leadsRouter);
 router.use(googleAuthRouter);
 router.use(sseRouter);
 router.use(publicRouter);
 router.use(openapiRouter);
+
+// Paddle webhook is mounted at app.ts level (needs raw body)
+
+// Public plans catalog (no auth required)
+router.get("/subscription/plans", (_req, res) => {
+  res.json({
+    trialDays: TRIAL_DAYS,
+    paddleConfigured: Boolean(process.env.PADDLE_API_KEY),
+    plans: Object.values(PLANS).map((p) => ({
+      id: p.id, name: p.name, nameAr: p.nameAr,
+      yearlyPriceUsd: p.yearlyPriceUsd,
+      limits: {
+        maxBranches: isUnlimited(p.limits.maxBranches) ? null : p.limits.maxBranches,
+        maxUsers:    isUnlimited(p.limits.maxUsers)    ? null : p.limits.maxUsers,
+      },
+      features: p.features,
+      highlighted: p.highlighted ?? false,
+    })),
+  });
+});
 
 // ── Authenticated (no tenant context required) ────────────────
 router.use(authenticate);
@@ -60,6 +86,10 @@ router.use(tenantsRouter);
 // requireTenant is idempotent: per-router requireTenant calls in individual
 // files are safe no-ops once this global middleware has already run.
 router.use(requireTenant);
+
+// Global revenue protection: block ALL writes from expired/canceled tenants.
+// Subscription / billing routes bypass this internally so users can still renew.
+router.use(readOnlyGuard);
 
 router.use(qrRouter);
 router.use(categoriesRouter);
@@ -82,10 +112,12 @@ router.use(loyaltyRouter);
 router.use(auditRouter);
 router.use(securityRouter);
 router.use(billingRouter);
+router.use(subscriptionRouter);
 router.use(cashierRouter);
 router.use(pinRouter);
 router.use(masterPasswordRouter);
 router.use(amendmentsRouter);
 router.use(aiChatRouter);
+router.use(uploadsRouter);
 
 export default router;

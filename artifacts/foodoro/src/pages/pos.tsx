@@ -415,11 +415,18 @@ export default function PosPage() {
                         : "bg-card border-border hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
                       }`}
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${unavailable ? "bg-destructive/10" : "bg-primary/20"}`}>
-                      <span className={`text-sm font-bold ${unavailable ? "text-destructive/60" : "text-primary"}`}>
-                        {product.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
+                    {product.imageUrl ? (
+                      <div className="w-full aspect-square rounded-lg overflow-hidden bg-muted mb-3">
+                        <img src={product.imageUrl} alt={product.name} loading="lazy"
+                          className={`w-full h-full object-cover ${unavailable ? "grayscale opacity-60" : ""}`} />
+                      </div>
+                    ) : (
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${unavailable ? "bg-destructive/10" : "bg-primary/20"}`}>
+                        <span className={`text-sm font-bold ${unavailable ? "text-destructive/60" : "text-primary"}`}>
+                          {product.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
                     <p className="text-foreground font-semibold text-sm leading-tight line-clamp-2 text-start">{product.name}</p>
                     <p className={`font-bold text-base mt-1 ${unavailable ? "text-muted-foreground" : "text-primary"}`}>
                       {format(product.price)}
