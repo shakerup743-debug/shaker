@@ -102,7 +102,7 @@ export default function SignUpPage() {
             <span className="text-white font-black text-3xl select-none">F</span>
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-black text-white tracking-tight">FOODORO</h1>
+            <h1 className="text-2xl font-black text-white tracking-tight">FOODPRO</h1>
             <p className="text-sm text-gray-400 mt-1">
               {isAr ? "أنشئ حساب مطعمك" : "Create your restaurant"}
             </p>

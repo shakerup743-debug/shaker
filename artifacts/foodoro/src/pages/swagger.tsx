@@ -199,10 +199,10 @@ export default function SwaggerPage() {
                         <div>
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">cURL</span>
-                            <CopyButton text={`curl -X ${ep.method} https://api.foodoro.app${ep.path}${ep.auth ? " \\\n  -H 'Authorization: Bearer {token}'" : ""}${ep.request ? ` \\\n  -H 'Content-Type: application/json' \\\n  -d '${JSON.stringify(ep.request)}'` : ""}`} />
+                            <CopyButton text={`curl -X ${ep.method} https://api.foodpro.app${ep.path}${ep.auth ? " \\\n  -H 'Authorization: Bearer {token}'" : ""}${ep.request ? ` \\\n  -H 'Content-Type: application/json' \\\n  -d '${JSON.stringify(ep.request)}'` : ""}`} />
                           </div>
                           <pre className="text-[10px] font-mono text-emerald-400 bg-background border border-border rounded-xl p-3 overflow-x-auto leading-relaxed">
-{`curl -X ${ep.method} https://api.foodoro.app${ep.path}${ep.auth ? `\n  -H 'Authorization: Bearer {token}'` : ""}${ep.request ? `\n  -H 'Content-Type: application/json'\n  -d '${JSON.stringify(ep.request, null, 2)}'` : ""}`}
+{`curl -X ${ep.method} https://api.foodpro.app${ep.path}${ep.auth ? `\n  -H 'Authorization: Bearer {token}'` : ""}${ep.request ? `\n  -H 'Content-Type: application/json'\n  -d '${JSON.stringify(ep.request, null, 2)}'` : ""}`}
                           </pre>
                         </div>
 

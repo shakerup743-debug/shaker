@@ -6,10 +6,10 @@ import { useAuth } from "@/contexts/auth";
 import { useTranslation } from "react-i18next";
 
 const DEMO_ACCOUNTS = [
-  { role: "admin", email: "admin@foodoro.com", password: "Admin@1234", label: "مدير النظام / Admin" },
-  { role: "cashier", email: "cashier@foodoro.com", password: "Cash@1234", label: "كاشير / Cashier" },
-  { role: "kitchen_staff", email: "kitchen@foodoro.com", password: "Kit@1234", label: "مطبخ / Kitchen" },
-  { role: "inventory_manager", email: "inventory@foodoro.com", password: "Inv@1234", label: "مخزون / Inventory" },
+  { role: "admin", email: "admin@foodpro.com", password: "Admin@1234", label: "مدير النظام / Admin" },
+  { role: "cashier", email: "cashier@foodpro.com", password: "Cash@1234", label: "كاشير / Cashier" },
+  { role: "kitchen_staff", email: "kitchen@foodpro.com", password: "Kit@1234", label: "مطبخ / Kitchen" },
+  { role: "inventory_manager", email: "inventory@foodpro.com", password: "Inv@1234", label: "مخزون / Inventory" },
 ];
 
 export default function LoginPage() {
@@ -54,7 +54,7 @@ export default function LoginPage() {
             <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4 shadow-lg shadow-primary/30">
               <ChefHat size={32} className="text-white" />
             </div>
-            <h1 className="text-2xl font-black text-foreground tracking-tight">FOODORO</h1>
+            <h1 className="text-2xl font-black text-foreground tracking-tight">FOODPRO</h1>
             <p className="text-sm text-muted-foreground mt-1">POS & Kitchen Management</p>
           </div>
 
@@ -71,7 +71,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    placeholder="admin@foodoro.com"
+                    placeholder="admin@foodpro.com"
                     data-testid="input-email"
                     className="w-full h-11 ps-9 pe-4 rounded-xl bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
                   />

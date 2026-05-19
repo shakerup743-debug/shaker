@@ -69,7 +69,7 @@
       "discount": "خصم (ر.س)",
       "subtotal": "المجموع",
       "tax": "ضريبة (15%)",
-      "taxIncluded": "شامل ضريبة القيمة المضافة (15%)",
+      "taxIncluded": "ضريبة القيمة المضافة (15%)",
       "total": "الإجمالي"
     },
     "payment": {
@@ -417,7 +417,7 @@
     "system": {
       "title": "معلومات النظام",
       "system": "النظام",
-      "systemValue": "FOODORO POS v1.0",
+      "systemValue": "FOODPRO POS v1.0",
       "taxRate": "نسبة الضريبة",
       "taxValue": "ضريبة 15%",
       "currency": "العملة",

@@ -231,7 +231,7 @@ export default function WebhooksPage() {
       {/* Info banner */}
       <div className="shrink-0 p-3 rounded-xl bg-blue-400/5 border border-blue-400/20 text-xs text-blue-300 flex items-start gap-2">
         <Zap size={13} className="mt-0.5 shrink-0 text-blue-400" />
-        <p>{isAr ? "يتم إرسال الإشعارات تلقائياً إلى روابطك عند حدوث الأحداث المحددة. يتضمن الطلب ترويسة X-Foodoro-Event وX-Foodoro-Signature للتحقق." : "Events are automatically POST-ed to your endpoints. Each request includes X-Foodoro-Event and X-Foodoro-Signature headers for verification."}</p>
+        <p>{isAr ? "يتم إرسال الإشعارات تلقائياً إلى روابطك عند حدوث الأحداث المحددة. يتضمن الطلب ترويسة X-Foodpro-Event وX-Foodpro-Signature للتحقق." : "Events are automatically POST-ed to your endpoints. Each request includes X-Foodpro-Event and X-Foodpro-Signature headers for verification."}</p>
       </div>
 
       {/* List */}

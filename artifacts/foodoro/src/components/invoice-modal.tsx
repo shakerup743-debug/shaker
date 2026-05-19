@@ -125,7 +125,7 @@ ${content.innerHTML}
 
         <div className="flex-1 overflow-y-auto p-4">
           <div ref={printRef} dir={isAr ? "rtl" : "ltr"}>
-            <div className="logo center" style={{ marginBottom: 8 }}>FOODORO</div>
+            <div className="logo center" style={{ marginBottom: 8 }}>FOODPRO</div>
             <div className="center meta" style={{ marginBottom: 4 }}>
               {isAr ? "نظام نقطة البيع" : "Point of Sale System"}
             </div>
@@ -214,7 +214,7 @@ ${content.innerHTML}
 
             <div className="divider" />
             <div className="footer">
-              {isAr ? "شكراً لزيارتكم • Powered by FOODORO" : "Thank you for your visit • Powered by FOODORO"}
+              {isAr ? "شكراً لزيارتكم • Powered by FOODPRO" : "Thank you for your visit • Powered by FOODPRO"}
             </div>
           </div>
         </div>

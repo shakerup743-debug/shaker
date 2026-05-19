@@ -16,8 +16,9 @@ import { useUser, useClerk, useAuth as useClerkAuth } from "@/lib/clerk-shim";
 import { useCurrency } from "@/contexts/currency";
 import { NotificationBell, useNotifications } from "@/components/notifications";
 import { useSse } from "@/hooks/use-sse";
+import { AiChatBot } from "@/components/ai-chat-bot";
 
-const FOODORO_TOKEN_KEY = "foodoro-token";
+const FOODPRO_TOKEN_KEY = "foodoro-token";
 
 /* ═══════════════════════════════════════════════════════
    CURRENCY SELECTOR
@@ -701,6 +702,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── Main Content ─────────────────────────────────────── */}
       <main className="flex-1 overflow-hidden relative z-10">{children}</main>
+
+      {/* ── Floating AI Assistant ────────────────────────────── */}
+      <AiChatBot />
     </div>
   );
 }

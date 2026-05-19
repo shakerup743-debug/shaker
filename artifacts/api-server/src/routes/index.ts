@@ -31,6 +31,7 @@ import cashierRouter from "./cashier.js";
 import pinRouter from "./pin.js";
 import masterPasswordRouter from "./master-password.js";
 import amendmentsRouter from "./amendments.js";
+import aiChatRouter from "./ai-chat.js";
 import openapiRouter from "./openapi.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { auditMiddleware } from "../middleware/audit-auto.js";
@@ -85,5 +86,6 @@ router.use(cashierRouter);
 router.use(pinRouter);
 router.use(masterPasswordRouter);
 router.use(amendmentsRouter);
+router.use(aiChatRouter);
 
 export default router;

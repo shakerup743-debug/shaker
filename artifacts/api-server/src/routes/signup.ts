@@ -79,8 +79,8 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
       taxRate: "15",
       country: "SA",
       timezone: "Asia/Riyadh",
-      subscriptionPlan: "starter",
-      subscriptionStatus: "trial",
+      subscriptionPlan: "enterprise",
+      subscriptionStatus: "active",
       isActive: true,
     })
     .returning();

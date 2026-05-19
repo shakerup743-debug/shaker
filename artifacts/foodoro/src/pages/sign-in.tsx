@@ -149,7 +149,7 @@ export default function SignInPage() {
             <p className="text-white text-base font-semibold">
               {redirectingToGoogle
                 ? (isAr ? "جاري التحويل إلى Google..." : "Redirecting to Google...")
-                : (isAr ? "نُكمل تسجيل دخولك إلى FOODORO..." : "Completing your sign-in to FOODORO...")}
+                : (isAr ? "نُكمل تسجيل دخولك إلى FOODPRO..." : "Completing your sign-in to FOODPRO...")}
             </p>
             <p className="text-gray-400 text-xs mt-2">
               {isAr
@@ -186,7 +186,7 @@ export default function SignInPage() {
             <span className="text-white font-black text-3xl select-none">F</span>
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-black text-white tracking-tight">FOODORO</h1>
+            <h1 className="text-2xl font-black text-white tracking-tight">FOODPRO</h1>
             <p className="text-sm text-gray-400 mt-1">
               {isAr ? "نظام إدارة المطعم" : "Restaurant Management System"}
             </p>

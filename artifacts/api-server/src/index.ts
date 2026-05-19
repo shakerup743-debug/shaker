@@ -1,4 +1,13 @@
 import { createServer } from "http";
+import { config as loadEnv } from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Load .env from api-server folder (works regardless of CWD)
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+loadEnv({ path: path.resolve(__dirname, "../.env") });
+loadEnv({ path: path.resolve(__dirname, ".env") }); // fallback in dist
+
 import app from "./app.js";
 import { logger } from "./lib/logger.js";
 import { socketBroker } from "./lib/socket-broker.js";

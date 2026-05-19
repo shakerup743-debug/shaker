@@ -69,7 +69,7 @@
       "discount": "Discount (SAR)",
       "subtotal": "Subtotal",
       "tax": "Tax (15%)",
-      "taxIncluded": "Incl. VAT (15%)",
+      "taxIncluded": "VAT (15%)",
       "total": "Total"
     },
     "payment": {
@@ -417,7 +417,7 @@
     "system": {
       "title": "System Information",
       "system": "System",
-      "systemValue": "FOODORO POS v1.0",
+      "systemValue": "FOODPRO POS v1.0",
       "taxRate": "Tax Rate",
       "taxValue": "15% VAT",
       "currency": "Currency",

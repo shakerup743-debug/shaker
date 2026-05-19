@@ -137,7 +137,7 @@ export default function OrderPage() {
   const menu = ctx?.menu ?? [];
   const tableNumber = ctx?.tableNumber ?? "";
   const tenantId = ctx?.tenantId ?? 0;
-  const tenantName = ctx?.tenantName ?? "FOODORO";
+  const tenantName = ctx?.tenantName ?? "FOODPRO";
   const currency = ctx?.currency ?? "SAR";
   const currencyLabel = isAr ? "ر.س" : currency;
 
@@ -176,9 +176,12 @@ export default function OrderPage() {
   }, []);
 
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0);
-  const subtotal = cart.reduce((s, c) => s + c.price * c.quantity, 0);
-  const tax = subtotal * 0.15;
-  const total = subtotal + tax;
+  // Prices stored & displayed are TAX-INCLUSIVE (VAT already in the sticker price).
+  // We extract the base subtotal and VAT portion from the total.
+  const taxRate = Number(ctx?.taxRate ?? 15) / 100;
+  const total = cart.reduce((s, c) => s + c.price * c.quantity, 0);
+  const subtotal = taxRate > 0 ? total / (1 + taxRate) : total;
+  const tax = total - subtotal;
 
   const handleOrder = async () => {
     if (!tenantId || !tableNumber || cart.length === 0) return;

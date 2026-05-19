@@ -25,7 +25,7 @@ import {
 } from "@/lib/kitchen-sound";
 import type { KitchenTicket } from "@workspace/api-client-react";
 
-const APP_TITLE = "FOODORO - Kitchen";
+const APP_TITLE = "FOODPRO - Kitchen";
 
 function elapsed(createdAt: string) {
   const diff = Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000);

@@ -176,8 +176,8 @@ export function ApiDocsComingSoon() {
       phaseNameAr="المنصة والسوق"
       etaEn="Q1 2028"
       etaAr="الربع الأول 2028"
-      descriptionEn="Interactive API documentation with live examples, authentication guides, and SDK downloads for developers building on FOODORO."
-      descriptionAr="توثيق API تفاعلي مع أمثلة حية، أدلة المصادقة، وتنزيلات SDK للمطورين الذين يبنون على منصة FOODORO."
+      descriptionEn="Interactive API documentation with live examples, authentication guides, and SDK downloads for developers building on FOODPRO."
+      descriptionAr="توثيق API تفاعلي مع أمثلة حية، أدلة المصادقة، وتنزيلات SDK للمطورين الذين يبنون على منصة FOODPRO."
     />
   );
 }

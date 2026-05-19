@@ -631,7 +631,7 @@ function MfaTab({ isAr, fetcher, mfaAdoptionRate, mfaEnabledCount, totalUsers }:
 
           <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-400/5 border border-amber-400/20">
             <Info size={13} className="text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-amber-400">{isAr ? "الإعدادات: FOODORO، SHA1، 6 أرقام، 30 ثانية" : "Settings: FOODORO, SHA1, 6 digits, 30s period"}</p>
+            <p className="text-[11px] text-amber-400">{isAr ? "الإعدادات: FOODPRO، SHA1، 6 أرقام، 30 ثانية" : "Settings: FOODPRO, SHA1, 6 digits, 30s period"}</p>
           </div>
 
           <Input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" className="font-mono text-center text-lg tracking-widest bg-background border-border h-12" maxLength={6} />
