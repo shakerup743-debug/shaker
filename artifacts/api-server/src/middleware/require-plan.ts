@@ -25,9 +25,20 @@ export function requirePlan(minPlan: SubscriptionPlan) {
     }
 
     const [tenant] = await db
-      .select({ subscriptionPlan: tenantsTable.subscriptionPlan })
+      .select({
+        subscriptionPlan: tenantsTable.subscriptionPlan,
+        demoMode: tenantsTable.demoMode,
+      })
       .from(tenantsTable)
       .where(eq(tenantsTable.id, tenantId));
+
+    // Demo-mode tenants bypass ALL plan gating — used for investor demos
+    // and platform-managed showcase accounts. Their `tenants.demo_mode`
+    // flag is set manually and grants full enterprise-tier access.
+    if (tenant?.demoMode) {
+      next();
+      return;
+    }
 
     const plan = (tenant?.subscriptionPlan ?? "starter") as SubscriptionPlan;
     const currentTier = PLAN_TIER[plan] ?? 1;

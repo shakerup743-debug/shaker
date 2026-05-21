@@ -285,9 +285,7 @@ function KpiTab({ from, to }: { from: string; to: string }) {
     );
   }
 
-  if (kpiError && (kpiErr as { status?: number })?.status === 403) {
-    return <PlanGateCard plan="pro" />;
-  }
+  // Pro/Enterprise gating intentionally disabled — all reports unlocked.
 
   return (
     <div className="flex flex-col gap-6">
@@ -645,9 +643,7 @@ function MonthlyTab() {
 
   const { data: report, isLoading, isError, error } = useGetMonthlyReport({ year, month });
 
-  if (isError && (error as { status?: number })?.status === 403) {
-    return <PlanGateCard plan="pro" />;
-  }
+  // Pro/Enterprise gating intentionally disabled.
 
   return (
     <div className="flex flex-col gap-6">
@@ -750,9 +746,7 @@ function YearlyTab() {
   const { data: report, isLoading, isError, error } = useGetYearlyReport({ year });
   const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  if (isError && (error as { status?: number })?.status === 403) {
-    return <PlanGateCard plan="pro" />;
-  }
+  // Pro/Enterprise gating intentionally disabled.
 
   return (
     <div className="flex flex-col gap-6">

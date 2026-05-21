@@ -327,13 +327,16 @@
       "selectMonth": "Month",
       "selectYear": "Year",
       "dailyChart": "Daily Revenue",
-      "summary": "Month Summary"
+      "summary": "Month Summary",
+      "dailyRevenue": "Daily Revenue",
+      "daily": "Daily"
     },
     "yearly": {
       "title": "Yearly Report",
       "selectYear": "Year",
       "monthlyChart": "Monthly Revenue",
-      "summary": "Year Summary"
+      "summary": "Year Summary",
+      "monthlyRevenue": "Monthly Revenue"
     },
     "hourly": {
       "title": "Hourly Sales",

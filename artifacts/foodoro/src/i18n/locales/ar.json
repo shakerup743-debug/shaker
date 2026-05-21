@@ -326,13 +326,16 @@
       "selectMonth": "الشهر",
       "selectYear": "السنة",
       "dailyChart": "الإيرادات اليومية",
-      "summary": "ملخص الشهر"
+      "summary": "ملخص الشهر",
+      "dailyRevenue": "الإيراد اليومي",
+      "daily": "يومي"
     },
     "yearly": {
       "title": "التقرير السنوي",
       "selectYear": "السنة",
       "monthlyChart": "الإيرادات الشهرية",
-      "summary": "ملخص السنة"
+      "summary": "ملخص السنة",
+      "monthlyRevenue": "الإيراد الشهري"
     },
     "hourly": {
       "title": "المبيعات بالساعة",
