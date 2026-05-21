@@ -5,12 +5,15 @@ import {
   Users, Truck, Tag, DollarSign, Brain, GitBranch, UserCog,
   TrendingUp, Webhook, Code2, Star, CreditCard, Shield, Bell,
   BookOpen, QrCode, Building2, Receipt, LayoutGrid, Package,
-  BarChart3, Lock, Grip, X, ArrowLeftRight, Clock as ClockIcon, FileEdit,
+  BarChart3, Lock, Grip, X, ArrowLeftRight, Clock as ClockIcon, FileEdit, Check,
 } from "lucide-react";
 import { QuickSwitch } from "@/components/quick-switch";
 import { useGetDashboardStats } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { useTranslation } from "react-i18next";
 import { useUser, useClerk, useAuth as useClerkAuth } from "@/lib/clerk-shim";
 import { useCurrency } from "@/contexts/currency";
@@ -18,6 +21,8 @@ import { NotificationBell, useNotifications } from "@/components/notifications";
 import { useSse } from "@/hooks/use-sse";
 import { AiChatBot } from "@/components/ai-chat-bot";
 import { SubscriptionBanner } from "@/components/subscription-banner";
+import { SUPPORTED_LANGUAGES } from "@/i18n/languages";
+import { OfflineIndicator } from "@/components/offline-indicator";
 
 const FOODPRO_TOKEN_KEY = "foodoro-token";
 
@@ -87,31 +92,42 @@ function CurrencySelector() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   LANGUAGE TOGGLE
+   LANGUAGE TOGGLE (25 languages)
 ═══════════════════════════════════════════════════════ */
 function LanguageToggle() {
   const { i18n } = useTranslation();
-  const isAr = i18n.language === "ar";
-  const toggle = () => {
-    const next = isAr ? "en" : "ar";
-    i18n.changeLanguage(next);
-    localStorage.setItem("foodoro-lang", next);
-  };
+  const [open, setOpen] = React.useState(false);
+  const active = SUPPORTED_LANGUAGES.find((l) => l.code === i18n.language) ?? SUPPORTED_LANGUAGES[0];
+
   return (
-    <Tooltip delayDuration={100}>
-      <TooltipTrigger asChild>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
         <button
-          onClick={toggle}
           data-testid="button-language-toggle"
-          className="w-10 h-10 rounded-xl border border-border bg-background flex items-center justify-center text-[11px] font-bold text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
+          className="w-10 h-10 rounded-xl border border-border bg-background flex items-center justify-center text-base font-bold text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
+          title={active.nameNative}
         >
-          {isAr ? "EN" : "ع"}
+          {active.flag}
         </button>
-      </TooltipTrigger>
-      <TooltipContent side="right" className="bg-card border-border text-foreground">
-        {isAr ? "English" : "عربي"}
-      </TooltipContent>
-    </Tooltip>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="bg-card border-border text-foreground max-h-[420px] overflow-y-auto w-60">
+        {SUPPORTED_LANGUAGES.map((l) => (
+          <DropdownMenuItem
+            key={l.code}
+            data-testid={`lang-option-${l.code}`}
+            onClick={() => { void i18n.changeLanguage(l.code); localStorage.setItem("foodoro-lang", l.code); }}
+            className="flex items-center justify-between gap-2 cursor-pointer text-xs"
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-base leading-none">{l.flag}</span>
+              <span className="font-medium">{l.nameNative}</span>
+              <span className="text-muted-foreground text-[10px]">{l.nameEn}</span>
+            </span>
+            {l.code === active.code && <Check size={13} className="text-primary" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -709,6 +725,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── Floating AI Assistant ────────────────────────────── */}
       <AiChatBot />
+
+      {/* ── Offline / Sync Indicator ─────────────────────────── */}
+      <OfflineIndicator />
     </div>
   );
 }

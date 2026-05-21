@@ -516,10 +516,3 @@ export default function ProductsPage() {
     </div>
   );
 }
-stid="button-confirm-delete-product" onClick={handleDelete} disabled={deleteProduct.isPending} className="flex-1 h-10 rounded-xl bg-destructive text-white text-sm font-semibold">{t("products.delete.confirm")}</button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}

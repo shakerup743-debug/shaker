@@ -418,7 +418,19 @@ export default function PosPage() {
                     {product.imageUrl ? (
                       <div className="w-full aspect-square rounded-lg overflow-hidden bg-muted mb-3">
                         <img src={product.imageUrl} alt={product.name} loading="lazy"
-                          className={`w-full h-full object-cover ${unavailable ? "grayscale opacity-60" : ""}`} />
+                          className={`w-full h-full object-cover ${unavailable ? "grayscale opacity-60" : ""}`}
+                          onError={(e) => {
+                            const el = e.currentTarget as HTMLImageElement;
+                            el.style.display = 'none';
+                            const parent = el.parentElement;
+                            if (parent && !parent.querySelector('span.product-fallback')) {
+                              parent.classList.add('flex', 'items-center', 'justify-center', 'bg-primary/20');
+                              const fb = document.createElement('span');
+                              fb.className = 'product-fallback text-primary font-bold text-2xl';
+                              fb.textContent = product.name.charAt(0).toUpperCase();
+                              parent.appendChild(fb);
+                            }
+                          }} />
                       </div>
                     ) : (
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${unavailable ? "bg-destructive/10" : "bg-primary/20"}`}>

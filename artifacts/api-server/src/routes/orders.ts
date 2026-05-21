@@ -17,6 +17,7 @@ import {
   CompleteOrderBody,
 } from "@workspace/api-zod";
 import { sseBroker } from "../lib/sse-broker.js";
+import { socketBroker } from "../lib/socket-broker.js";
 import { logAudit } from "../lib/audit.js";
 import { fireWebhooks } from "./webhooks.js";
 import { requireTenant } from "../middleware/require-tenant.js";
@@ -179,6 +180,8 @@ router.post("/orders", async (req, res): Promise<void> => {
   const result = await getOrderWithItems(req.db!, order.id, tid);
   sseBroker.emit({ type: "order:created", data: { orderId: order.id, orderNumber: order.orderNumber, type: order.type } });
   sseBroker.emit({ type: "stats:updated", data: { tenantId: tid } });
+  socketBroker.emit({ type: "order:created", payload: { orderId: order.id, orderNumber: order.orderNumber, type: order.type }, tenantId: tid, timestamp: new Date().toISOString() });
+  socketBroker.emit({ type: "stats:updated", payload: { tenantId: tid }, tenantId: tid, timestamp: new Date().toISOString() });
   void logAudit(req, "order:created", "orders", order.id, {
     orderNumber: order.orderNumber,
     type: order.type,
@@ -239,6 +242,9 @@ router.patch("/orders/:id", async (req, res): Promise<void> => {
     });
     if (parsed.data.status === "cancelled") {
       sseBroker.emit({ type: "stats:updated", data: { tenantId: tid } });
+      socketBroker.emit({ type: "order:cancelled", payload: { orderId: params.data.id }, tenantId: tid, timestamp: new Date().toISOString() });
+    } else {
+      socketBroker.emit({ type: "order:updated", payload: { orderId: params.data.id, status: parsed.data.status }, tenantId: tid, timestamp: new Date().toISOString() });
     }
   }
 
@@ -264,8 +270,11 @@ router.post("/orders/:id/complete", async (req, res): Promise<void> => {
 
     for (const alert of lowStockAlerts) {
       sseBroker.emit({ type: "inventory:low", data: alert });
+      socketBroker.emit({ type: "inventory:low", payload: alert, tenantId: tid, timestamp: new Date().toISOString() });
     }
     sseBroker.emit({ type: "stats:updated", data: { tenantId: tid } });
+    socketBroker.emit({ type: "order:completed", payload: { orderId: params.data.id, total }, tenantId: tid, timestamp: new Date().toISOString() });
+    socketBroker.emit({ type: "stats:updated", payload: { tenantId: tid }, tenantId: tid, timestamp: new Date().toISOString() });
 
     void logAudit(req, "order:completed", "orders", params.data.id, {
       paymentMethod: parsed.data.paymentMethod,

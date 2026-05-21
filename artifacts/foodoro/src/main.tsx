@@ -1,7 +1,19 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
+import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import "./index.css";
+
+// ── Register the Workbox service worker for offline support ────────────
+if (typeof window !== "undefined") {
+  registerSW({
+    immediate: true,
+    onRegistered(reg) {
+      // Re-check for SW updates every 60 minutes.
+      if (reg) setInterval(() => { void reg.update(); }, 60 * 60 * 1000);
+    },
+  });
+}
 
 class ErrorBoundary extends Component<
   { children: ReactNode },

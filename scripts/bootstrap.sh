@@ -168,6 +168,14 @@ CREATE TABLE IF NOT EXISTS security_events (
   metadata JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS exchange_rates (
+  id SERIAL PRIMARY KEY,
+  base_currency CHAR(3) NOT NULL,
+  target_currency CHAR(3) NOT NULL,
+  rate NUMERIC(15,6) NOT NULL,
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (base_currency, target_currency)
+);
 ALTER TABLE products  ADD COLUMN IF NOT EXISTS image_url TEXT;
 ALTER TABLE qr_tokens ADD COLUMN IF NOT EXISTS session_started_at TIMESTAMPTZ;
 ALTER TABLE qr_tokens ADD COLUMN IF NOT EXISTS session_expires_at TIMESTAMPTZ;

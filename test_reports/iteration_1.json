@@ -1,0 +1,53 @@
+{
+  "summary": "Backend-only testing for FoodPro POS. Ran 16 pytest cases against the public preview URL covering auth, subscription, currencies, exchange-rates (Frankfurter + open.er-api fallback), products, orders, QR, discounts, invoice settings, master-password, WebSocket and service-worker. 13 passed, 2 skipped (no demo products; spec endpoint name mismatch), 1 failed (USD exchange rates do not include SAR — real bug). Also identified one infra/routing concern with WebSocket /ws not reachable via the public ingress.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/exchange-rates?base=USD",
+        "issue": "Response does not contain SAR. refreshRates('USD') hits Frankfurter (30 currencies, no SAR) and never merges with open.er-api.com fallback because the fallback path only runs when Frankfurter returns empty. Result: USD-based rates missing major non-Frankfurter currencies (SAR, AED, KWD, BHD, QAR, OMR, EGP, JOD, etc.). Review request explicitly required SAR to be present.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "GET /api/discounts/settings",
+        "issue": "Returns 404. Actual mounted route is GET /api/discount-settings (returns {settings: []} = 200). Either rename the route or add an alias. Spec/route inconsistency."
+      },
+      {
+        "endpoint": "WebSocket GET /ws",
+        "issue": "Backend handshake works locally (HTTP/1.1 101 Switching Protocols on localhost:8001/ws and frame {type:connected} received). Via public URL /ws is proxied to the frontend (returns text/html 200). Kubernetes ingress only forwards /api/* to the backend. Either mount socket-broker at /api/ws or extend ingress to forward /ws upgrades. Otherwise PWA clients on the public domain cannot use realtime."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_foodpro_backend.py",
+    "/app/test_reports/pytest/foodpro_results.xml"
+  ],
+  "action_items": [
+    "Fix refreshRates() in /app/artifacts/api-server/src/routes/exchange-rates.ts to merge Frankfurter + open.er-api.com results (Union, not fallback-only) so that USD base contains SAR and other middle-east currencies. Then rebuild and restart backend.",
+    "Align discount settings route: either rename to /api/discounts/settings or add an alias router.get('/discounts/settings') so the spec matches.",
+    "Expose WebSocket /ws via the public ingress (mount at /api/ws or update ingress rules) so PWA/realtime works for end-users, not only on localhost."
+  ],
+  "critical_code_review_comments": [
+    "refreshRates() uses fallback-only semantics; should merge providers so the union of supported currencies is persisted.",
+    "Route naming is inconsistent: discounts logic lives at /api/discount-settings while the rest of the resource uses pluralised paths (/api/qr-orders, /api/invoice-settings). Prefer one convention.",
+    "Socket broker is mounted at /ws (root) which is unreachable through the standard /api/* ingress; route it under /api or update ingress.",
+    "exchange-rates.ts top-level void refreshRates() calls run on import — fine, but consider awaiting in a startup hook to avoid race with first GET on cold start."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_foodpro_backend.py",
+    "/app/test_reports/pytest/foodpro_results.xml"
+  ],
+  "success_rate": {"backend": "81% (13/16 passed, 2 skipped, 1 failed)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "demo@foodpro.com / Demo2026! (from /app/memory/test_credentials.md) — login returns JWT, tenant=foodpro-demo, plan=enterprise/active confirmed.",
+  "seed_data_creation": "None. /api/products returned empty for demo tenant so order create/complete test was skipped. Recommend seeding at least one demo product so the order flow can be exercised.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Test file at /app/backend/tests/test_foodpro_backend.py covers all listed endpoints. Re-run with: pytest /app/backend/tests/test_foodpro_backend.py -v --junitxml=/app/test_reports/pytest/foodpro_results.xml. The only real backend bug is missing SAR in USD exchange rates — re-test test_rates_usd_includes_sar after refreshRates is fixed. Skip on order test will auto-resolve once a demo product is seeded. WS test currently passes via localhost fallback; once /ws is exposed publicly, simplify to only test the public URL.",
+  "rca of the issue": "Bug: GET /api/exchange-rates?base=USD missing SAR.\nReproduction: 1) POST /api/auth/login (demo creds) → token. 2) POST /api/exchange-rates/refresh {base:'USD'} → {ok:true}. 3) GET /api/exchange-rates?base=USD → rates contains 30 target_currency rows from Frankfurter only; SAR absent.\nRoot cause: In /app/artifacts/api-server/src/routes/exchange-rates.ts:17-39, refreshRates() assigns `rates` from Frankfurter first; the open.er-api.com block runs only when `rates` is still null. For USD, Frankfurter returns 30 currencies (success), so the fallback never executes and SAR/AED/KWD/etc. are never written to the exchange_rates table.\nMitigation: Change the logic to merge both providers (call both, then `rates = { ...erApiRates, ...frankfurterRates }`) so the union covers all 160+ currencies including SAR. Alternatively, after Frankfurter succeeds, still fetch open.er-api.com and INSERT/ON CONFLICT upsert any currencies Frankfurter doesn't have.\n\nSecondary issue: Discount settings spec mismatch — route registered as /api/discount-settings, spec expects /api/discounts/settings. Add an alias or rename.\n\nTertiary: /ws not routed through public ingress; works on localhost:8001 only."
+}

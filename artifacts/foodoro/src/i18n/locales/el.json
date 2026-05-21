@@ -1,0 +1,859 @@
+{
+  "nav": {
+    "pos": "POS",
+    "kitchen": "Kitchen",
+    "products": "Products",
+    "inventory": "Inventory",
+    "inventoryIntelligence": "Stock AI",
+    "customerAnalytics": "Customer Analytics",
+    "financialsOverview": "P&L Overview",
+    "tenantSettings": "Tenant Settings",
+    "reports": "Reports",
+    "reportsAdvanced": "Analytics",
+    "financials": "Financials",
+    "ai": "AI Analytics",
+    "customers": "Customers",
+    "suppliers": "Suppliers",
+    "coupons": "Coupons",
+    "tables": "Tables",
+    "staff": "Staff",
+    "staffSchedule": "Schedule",
+    "branches": "Branches",
+    "webhooks": "Webhooks",
+    "loyalty": "Loyalty",
+    "payments": "Payments",
+    "audit": "Audit Log",
+    "security": "Security",
+    "shifts": "Cashier Shifts",
+    "notifications": "Notifications",
+    "qrMenu": "QR Menu",
+    "floorPlan": "Floor Plan",
+    "apiDocs": "API Docs",
+    "developer": "Developer",
+    "settings": "Settings",
+    "cashierAmendments": "Amendments",
+    "management": "Management"
+  },
+  "auth": {
+    "login": "Login",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign In",
+    "signingIn": "Signing in...",
+    "loginError": "Invalid email or password",
+    "logout": "Logout",
+    "unauthorized": "Unauthorized",
+    "noPermission": "You don't have permission to access this page",
+    "demoAccounts": "Quick access — demo accounts",
+    "roles": {
+      "admin": "Administrator",
+      "cashier": "Cashier",
+      "kitchen_staff": "Kitchen Staff",
+      "inventory_manager": "Inventory Manager"
+    }
+  },
+  "pos": {
+    "title": "Point of Sale",
+    "orderType": {
+      "dine_in": "Dine In",
+      "takeaway": "Takeaway",
+      "delivery": "Delivery"
+    },
+    "tableNumber": "Table #",
+    "allCategories": "All",
+    "noProducts": "No products found",
+    "cart": {
+      "title": "Current Order",
+      "empty": "Cart is empty",
+      "clear": "Clear",
+      "discount": "Discount (SAR)",
+      "subtotal": "Subtotal",
+      "tax": "Tax (15%)",
+      "taxIncluded": "VAT (15%)",
+      "total": "Total"
+    },
+    "payment": {
+      "cash": "Cash",
+      "card": "Card",
+      "mixed": "Mixed",
+      "title": "Complete Payment",
+      "method": "Payment Method",
+      "amountReceived": "Amount Received",
+      "enterAmount": "Enter amount",
+      "change": "Change",
+      "confirm": "Confirm & Place Order"
+    },
+    "toast": {
+      "orderPlaced": "Order placed",
+      "kitchenNotified": "Kitchen has been notified.",
+      "error": "Error",
+      "failedToPlace": "Failed to place order.",
+      "lowStock": "Low Stock Alert",
+      "lowStockDetail": "{{name}}: {{quantity}} {{unit}} remaining (threshold: {{threshold}} {{unit}})"
+    }
+  },
+  "kitchen": {
+    "title": "Kitchen Display",
+    "active": "active",
+    "updated": "Updated",
+    "noOrders": "No orders",
+    "refresh": "Refresh",
+    "statuses": {
+      "new": "New",
+      "in_progress": "Preparing",
+      "ready": "Ready",
+      "completed": "Completed"
+    },
+    "actions": {
+      "startPreparing": "Start Preparing",
+      "markReady": "Mark Ready",
+      "completed": "Completed"
+    },
+    "tags": {
+      "takeaway": "Takeaway",
+      "table": "T"
+    },
+    "sound": {
+      "mute": "Mute alerts",
+      "unmute": "Unmute alerts",
+      "newBadge": "NEW"
+    }
+  },
+  "products": {
+    "title": "Products",
+    "items": "items",
+    "addProduct": "Add Product",
+    "search": "Search products...",
+    "all": "All",
+    "form": {
+      "name": "Name *",
+      "price": "Price (SAR) *",
+      "category": "Category *",
+      "description": "Description",
+      "descriptionPlaceholder": "Optional description",
+      "pricePlaceholder": "0.00",
+      "namePlaceholder": "Product name",
+      "selectCategory": "Select",
+      "save": "Add Product",
+      "update": "Update Product",
+      "saving": "Saving..."
+    },
+    "edit": "Edit Product",
+    "recipe": {
+      "title": "Recipe / Ingredients",
+      "subtitle": "Ingredients auto-deducted from inventory when orders complete",
+      "add": "Add Ingredient",
+      "noIngredients": "No ingredients linked — stock won't be deducted automatically",
+      "ingredient": "Ingredient",
+      "selectIngredient": "Select inventory item",
+      "qty": "Qty per unit",
+      "remove": "Remove",
+      "save": "Save Recipe",
+      "saved": "Recipe saved",
+      "error": "Failed to save recipe"
+    },
+    "delete": {
+      "title": "Delete Product?",
+      "message": "This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    },
+    "toast": {
+      "created": "Product created",
+      "updated": "Product updated",
+      "deleted": "Product deleted",
+      "error": "Error",
+      "failedCreate": "Failed to create product",
+      "failedUpdate": "Failed to update product",
+      "failedDelete": "Failed to delete product"
+    }
+  },
+  "inventory": {
+    "title": "Inventory",
+    "lowStockBadge": "low stock",
+    "lowStockOnly": "Low Stock Only",
+    "addItem": "Add Item",
+    "table": {
+      "item": "Item",
+      "currentStock": "Current Stock",
+      "consumedToday": "Consumed Today",
+      "lowStockAlert": "Low Stock Alert",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "inStock": "In Stock",
+      "lowStock": "Low Stock"
+    },
+    "adjust": "Adjust",
+    "adjustTitle": "Adjust Stock",
+    "adjustForm": {
+      "amount": "Amount",
+      "reason": "Reason",
+      "reasonPlaceholder": "e.g. Stock received, Used in prep...",
+      "remove": "Remove",
+      "add": "Add"
+    },
+    "form": {
+      "name": "Item Name *",
+      "namePlaceholder": "e.g. Tomatoes",
+      "quantity": "Quantity *",
+      "unit": "Unit",
+      "unitPlaceholder": "pcs, kg, L...",
+      "threshold": "Low Stock Alert at",
+      "save": "Add Item",
+      "adding": "Adding..."
+    },
+    "toast": {
+      "adjusted": "Stock adjusted",
+      "added": "Item added",
+      "error": "Error"
+    }
+  },
+  "currency": {
+    "change": "Change Currency",
+    "select": "Select Currency"
+  },
+  "reports": {
+    "title": "Reports",
+    "tabs": {
+      "daily": "Daily",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "kpi": "KPIs",
+      "invoices": "Invoices"
+    },
+    "print": "Print Report",
+    "exportExcel": "Export Excel",
+    "exportCsv": "Export CSV",
+    "noData": "No data for this period",
+    "vsYesterday": "vs yesterday",
+    "vsPrevPeriod": "vs prev. period",
+    "vsPrevWeek": "vs prev. week",
+    "periods": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month",
+      "last3Months": "Last 3 Months",
+      "thisYear": "This Year",
+      "custom": "Custom"
+    },
+    "alerts": {
+      "revenueDown": "Revenue down {{pct}}% vs yesterday",
+      "lowStock": "{{count}} items below minimum stock",
+      "pendingOrders": "{{count}} orders pending in kitchen"
+    },
+    "planGate": {
+      "title": "{{plan}} Plan Required",
+      "desc": "Upgrade to the {{plan}} plan to unlock this report."
+    },
+    "kpi": {
+      "title": "Key Performance Indicators",
+      "financial": "Financial",
+      "sales": "Sales",
+      "operations": "Operations",
+      "inventory": "Inventory",
+      "totalRevenue": "Total Revenue",
+      "prevRevenue": "Prev. Period",
+      "taxCollected": "Tax Collected",
+      "discountsGiven": "Discounts Given",
+      "cashRevenue": "Cash Revenue",
+      "cardRevenue": "Card Revenue",
+      "orderCount": "Total Orders",
+      "completedOrders": "Completed",
+      "cancelledOrders": "Cancelled",
+      "cancellationRate": "Cancellation Rate",
+      "averageOrderValue": "Avg Order Value",
+      "dineIn": "Dine In",
+      "takeaway": "Takeaway",
+      "delivery": "Delivery",
+      "lowStockCount": "Low Stock Items",
+      "lowStockList": "Items Below Threshold",
+      "trend": "trend"
+    },
+    "category": {
+      "title": "Sales by Category",
+      "revenue": "Revenue",
+      "itemsSold": "Items Sold",
+      "orders": "Orders"
+    },
+    "weekday": {
+      "title": "Sales by Day of Week",
+      "Sun": "Sun", "Mon": "Mon", "Tue": "Tue", "Wed": "Wed",
+      "Thu": "Thu", "Fri": "Fri", "Sat": "Sat"
+    },
+    "dashboardCards": {
+      "todayRevenue": "Today Revenue",
+      "todayOrders": "Today Orders",
+      "activeOrders": "Active Orders",
+      "weekRevenue": "Week Revenue",
+      "kitchenQueue": "Kitchen Queue",
+      "lowStock": "Low Stock",
+      "completedOrders": "completed orders",
+      "placedToday": "placed today",
+      "inProgress": "in progress",
+      "lastSevenDays": "last 7 days",
+      "pendingTickets": "pending tickets",
+      "needAttention": "items need attention"
+    },
+    "daily": {
+      "totalRevenue": "Total Revenue",
+      "orders": "Orders",
+      "avgOrder": "Avg Order Value",
+      "paymentSplit": "Payment Split",
+      "cash": "Cash",
+      "card": "Card",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "tax": "Tax Collected",
+      "discount": "Discounts",
+      "dineIn": "Dine In",
+      "takeaway": "Takeaway",
+      "delivery": "Delivery",
+      "orderTypes": "Order Types"
+    },
+    "monthly": {
+      "title": "Monthly Report",
+      "selectMonth": "Month",
+      "selectYear": "Year",
+      "dailyChart": "Daily Revenue",
+      "summary": "Month Summary"
+    },
+    "yearly": {
+      "title": "Yearly Report",
+      "selectYear": "Year",
+      "monthlyChart": "Monthly Revenue",
+      "summary": "Year Summary"
+    },
+    "hourly": {
+      "title": "Hourly Sales",
+      "peak": "Peak"
+    },
+    "topProducts": {
+      "title": "Top Products",
+      "noData": "No data for this date",
+      "sold": "sold"
+    },
+    "months": {
+      "1": "Jan", "2": "Feb", "3": "Mar", "4": "Apr",
+      "5": "May", "6": "Jun", "7": "Jul", "8": "Aug",
+      "9": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"
+    },
+    "monthsFull": {
+      "1": "January", "2": "February", "3": "March", "4": "April",
+      "5": "May", "6": "June", "7": "July", "8": "August",
+      "9": "September", "10": "October", "11": "November", "12": "December"
+    },
+    "sections": {
+      "sales": "Sales",
+      "inventory_waste": "Inventory & Waste",
+      "financial": "Financial"
+    }
+  },
+  "waste": {
+    "title": "Waste Log",
+    "logWaste": "Log Waste",
+    "today": "today",
+    "todayWaste": "Today's Waste",
+    "form": {
+      "item": "Item",
+      "selectInventory": "Select from inventory...",
+      "typeManually": "Or type item name manually",
+      "available": "Available",
+      "quantity": "Quantity",
+      "unit": "Unit",
+      "reason": "Waste Reason",
+      "costEstimate": "Estimated Cost (SAR, optional)",
+      "notes": "Notes (optional)",
+      "notesPlaceholder": "Additional details...",
+      "submit": "Log Waste",
+      "submitting": "Saving...",
+      "success": "Logged"
+    },
+    "reasons": {
+      "spoilage": "Spoilage",
+      "burning": "Burning",
+      "expiry": "Expiry",
+      "prep_error": "Preparation Error",
+      "theft": "Theft",
+      "other": "Other"
+    },
+    "analytics": {
+      "title": "Waste Analytics",
+      "totalCost": "Total Waste Cost",
+      "totalEntries": "Total Entries",
+      "topItems": "Top Wasted Items",
+      "byReason": "Waste by Reason (SAR)",
+      "recentLog": "Waste Log",
+      "noData": "No waste data for this period",
+      "noDataHint": "Log waste from the kitchen page"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "categories": {
+      "title": "Product Categories",
+      "subtitle": "Organize your menu with categories",
+      "addCategory": "Add Category",
+      "empty": "No categories yet",
+      "emptyHint": "Add a category to start organizing your menu",
+      "form": {
+        "name": "Category Name *",
+        "namePlaceholder": "e.g. Burgers, Drinks...",
+        "color": "Color",
+        "save": "Add Category",
+        "update": "Update Category",
+        "saving": "Saving..."
+      },
+      "editTitle": "Edit Category",
+      "delete": {
+        "title": "Delete Category?",
+        "message": "Products in this category will not be deleted but will lose their category association.",
+        "cancel": "Cancel",
+        "confirm": "Delete"
+      }
+    },
+    "system": {
+      "title": "System Information",
+      "system": "System",
+      "systemValue": "FOODPRO POS v1.0",
+      "taxRate": "Tax Rate",
+      "taxValue": "15% VAT",
+      "currency": "Currency",
+      "currencyValue": "SAR (Saudi Riyal)",
+      "mode": "Mode",
+      "online": "Online"
+    },
+    "toast": {
+      "created": "Category created",
+      "updated": "Category updated",
+      "deleted": "Category deleted",
+      "error": "Error"
+    },
+    "auditLog": {
+      "title": "Activity Log",
+      "subtitle": "Track all critical actions performed in the system",
+      "filterFrom": "From",
+      "filterTo": "To",
+      "filterAction": "All Actions",
+      "load": "Load",
+      "exportCsv": "Export CSV",
+      "noData": "No activity found",
+      "noDataHint": "Try changing filters or load logs",
+      "columns": {
+        "time": "Time",
+        "user": "User",
+        "action": "Action",
+        "resource": "Resource",
+        "resourceId": "ID",
+        "ip": "IP"
+      },
+      "actions": {
+        "login": "Login",
+        "logout": "Logout",
+        "order_created": "Order Created",
+        "order_completed": "Order Completed",
+        "inventory_adjusted": "Inventory Adjusted",
+        "user_created": "User Created",
+        "user_updated": "User Updated"
+      }
+    }
+  },
+  "qr": {
+    "title": "QR Table Ordering",
+    "subtitle": "Generate QR codes for each table so guests can order from their phones",
+    "tableLabel": "Table Number",
+    "tablePlaceholder": "e.g. 1, 2, A1...",
+    "generate": "Generate QR",
+    "download": "Download PNG",
+    "scanHint": "Guests scan this code to place orders directly",
+    "orderLink": "Order link for Table {{table}}"
+  },
+  "order": {
+    "invalidQr": "Invalid QR Code",
+    "invalidQrHint": "Please scan a valid table QR code to order.",
+    "table": "Table {{table}}",
+    "cart": "Cart",
+    "all": "All",
+    "add": "Add",
+    "orderPlaced": "Order Placed!",
+    "kitchenSent": "Your order has been sent to the kitchen.",
+    "tableSummary": "Table {{table}} · Total: {{total}} SAR",
+    "orderMore": "Order More",
+    "yourOrder": "Your Order · Table {{table}}",
+    "noItems": "No items added yet",
+    "specialRequests": "Any special requests or notes...",
+    "subtotal": "Subtotal",
+    "vat": "VAT (15%)",
+    "total": "Total",
+    "placeOrder": "Place Order · {{total}} SAR",
+    "placing": "Placing Order..."
+  },
+  "customers": {
+    "title": "Customers",
+    "subtitle": "CRM & Loyalty Program",
+    "add": "Add Customer",
+    "addTitle": "New Customer",
+    "search": "Search by name, phone...",
+    "allTiers": "All Tiers",
+    "noCustomers": "No customers yet",
+    "orders": "orders",
+    "spent": "total spent",
+    "points": "pts",
+    "delete": "Delete Customer",
+    "addNote": "Add Note",
+    "notePlaceholder": "Write a note...",
+    "adjustPoints": "Adjust Loyalty Points",
+    "pointsAmount": "Points",
+    "pointsReason": "Reason (optional)",
+    "earnPoints": "Earn",
+    "redeemPoints": "Redeem",
+    "stats": {
+      "total": "Total Customers",
+      "silver": "Silver",
+      "gold": "Gold",
+      "platinum": "Platinum"
+    },
+    "form": {
+      "name": "Full Name",
+      "phone": "Phone",
+      "email": "Email",
+      "notes": "Notes"
+    },
+    "toast": {
+      "created": "Customer added",
+      "deleted": "Customer deleted",
+      "noteAdded": "Note added",
+      "pointsUpdated": "Points updated",
+      "error": "Failed to save"
+    }
+  },
+  "suppliers": {
+    "title": "Suppliers",
+    "count": "suppliers",
+    "add": "Add Supplier",
+    "addTitle": "New Supplier",
+    "newOrder": "New Purchase Order",
+    "noSuppliers": "No suppliers yet",
+    "noOrders": "No purchase orders",
+    "order": "Order",
+    "createOrder": "Create Order",
+    "leadTime": "lead time",
+    "selectSupplier": "Select supplier",
+    "expectedDelivery": "Expected Delivery",
+    "tabs": {
+      "suppliers": "Suppliers",
+      "orders": "Purchase Orders"
+    },
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "in_transit": "In Transit",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled"
+    },
+    "form": {
+      "name": "Company Name",
+      "contact": "Contact Person",
+      "phone": "Phone",
+      "email": "Email",
+      "address": "Address",
+      "leadTime": "Lead Time (days)",
+      "rating": "Rating (1–5)",
+      "supplier": "Supplier",
+      "itemName": "Item Name",
+      "quantity": "Quantity",
+      "unit": "Unit",
+      "unitCost": "Unit Cost (SAR)",
+      "expectedDelivery": "Expected Delivery"
+    },
+    "toast": {
+      "created": "Supplier added",
+      "orderCreated": "Purchase order created",
+      "error": "Failed to save"
+    }
+  },
+  "coupons": {
+    "title": "Coupons & Discounts",
+    "add": "Add Coupon",
+    "addTitle": "New Coupon",
+    "active": "active",
+    "totalUsed": "total uses",
+    "noCoupons": "No coupons yet",
+    "expired": "Expired",
+    "exhausted": "Used up",
+    "off": "off",
+    "uses": "uses",
+    "discount": "Discount",
+    "type": {
+      "percentage": "Percentage (%)",
+      "fixed": "Fixed Amount (SAR)"
+    },
+    "stats": {
+      "total": "Total",
+      "active": "Active",
+      "used": "Total Uses"
+    },
+    "form": {
+      "code": "Coupon Code",
+      "description": "Description",
+      "type": "Type",
+      "value": "Value",
+      "minOrder": "Min Order (SAR)",
+      "maxUses": "Max Uses",
+      "validFrom": "Valid From",
+      "validUntil": "Valid Until"
+    },
+    "toast": {
+      "created": "Coupon created",
+      "deleted": "Coupon deleted",
+      "copied": "Code copied",
+      "codeTaken": "Code already exists"
+    }
+  },
+  "tables": {
+    "title": "Table Management",
+    "addTable": "Add Table",
+    "addTitle": "New Table",
+    "newReservation": "New Reservation",
+    "noTables": "No tables configured",
+    "noReservations": "No reservations",
+    "tableNum": "Table",
+    "selectTable": "Select table",
+    "mins": "min",
+    "clean": "Clean",
+    "free": "Free",
+    "seat": "Seat Guests",
+    "seatTitle": "Seat Table",
+    "markReady": "Mark Ready",
+    "confirmReservation": "Confirm Reservation",
+    "tabs": {
+      "map": "Floor Map",
+      "reservations": "Reservations"
+    },
+    "status": {
+      "available": "Available",
+      "occupied": "Occupied",
+      "needsCleaning": "Needs Cleaning",
+      "reserved": "Reserved",
+      "disabled": "Disabled"
+    },
+    "resStatus": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "seated": "Seated",
+      "cancelled": "Cancelled"
+    },
+    "shapes": {
+      "rectangle": "Rectangle",
+      "circle": "Circle",
+      "square": "Square"
+    },
+    "form": {
+      "number": "Table Number",
+      "capacity": "Capacity",
+      "section": "Section",
+      "shape": "Shape",
+      "customerName": "Customer Name",
+      "guestCount": "Guest Count",
+      "phone": "Phone",
+      "time": "Reservation Time"
+    },
+    "toast": {
+      "created": "Table added",
+      "numberTaken": "Table number already exists",
+      "seated": "Guests seated",
+      "cleared": "Table cleared",
+      "reserved": "Reservation confirmed"
+    }
+  },
+  "billing": {
+    "title": "Subscription & Billing",
+    "subtitle": "Manage your plan and billing",
+    "currentPlan": "Current Plan",
+    "usage": "Usage",
+    "upgrade": "Upgrade Plan",
+    "manage": "Manage Subscription",
+    "subscribe": "Subscribe",
+    "upgradeNow": "Upgrade Now",
+    "contactSales": "Contact Sales",
+    "nav": "Billing",
+    "status": {
+      "active": "Active",
+      "trial": "Trial",
+      "expired": "Expired",
+      "suspended": "Suspended"
+    },
+    "plans": {
+      "starter": "Starter",
+      "pro": "Pro",
+      "enterprise": "Enterprise"
+    },
+    "limits": {
+      "branches": "{{used}} / {{max}} branches",
+      "branchesUnlimited": "{{used}} / ∞ branches",
+      "users": "{{used}} / {{max}} users",
+      "usersUnlimited": "{{used}} / ∞ users"
+    },
+    "compare": {
+      "title": "Choose Your Plan",
+      "perMonth": "/ month",
+      "current": "Current Plan",
+      "select": "Select Plan",
+      "features": {
+        "branches": "Branches",
+        "users": "Users",
+        "support": "Support",
+        "analytics": "Analytics",
+        "api": "API Access"
+      },
+      "supportLevels": {
+        "starter": "Email",
+        "pro": "Priority",
+        "enterprise": "Dedicated"
+      },
+      "analyticsLevels": {
+        "starter": "Basic",
+        "pro": "Advanced",
+        "enterprise": "Full Suite"
+      }
+    },
+    "toast": {
+      "checkoutError": "Failed to start checkout. Is Stripe configured?",
+      "portalError": "Failed to open billing portal.",
+      "successTitle": "Subscription Updated!",
+      "successDesc": "Your plan has been updated successfully."
+    },
+    "noStripe": "Stripe is not configured. Set STRIPE_SECRET_KEY to enable billing.",
+    "expiresAt": "Renews",
+    "unlimited": "Unlimited"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "save": "Save",
+    "add": "Add",
+    "edit": "Edit",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No data",
+    "sar": "SAR",
+    "inactive": "Inactive"
+  },
+  "session": {
+    "expiringSoon": "Session expiring soon",
+    "expiringSoonDesc": "Your session will expire soon — please log in again",
+    "refreshFailed": "Session refresh failed",
+    "refreshFailedDesc": "Your session could not be renewed — please log in again",
+    "timeLeft": "Session time remaining",
+    "idleWarning": "Are you still there?",
+    "idleWarningDesc": "You've been inactive for a while. You'll be logged out automatically in 2 minutes.",
+    "stayLoggedIn": "Stay Logged In"
+  },
+  "autoLock": {
+    "title": "Session Locked",
+    "enterPin": "Enter your PIN to continue",
+    "invalidPin": "Invalid PIN",
+    "error": "Verification failed"
+  },
+  "smartLock": {
+    "title": "Manager Authorization",
+    "action": "Action",
+    "desc": "{{name}} must authorize this action",
+    "password": "Password",
+    "passwordPlaceholder": "Manager password",
+    "verify": "Verify",
+    "invalid": "Invalid credentials",
+    "error": "Verification failed"
+  },
+  "quickSwitch": {
+    "title": "Quick Switch",
+    "selectUser": "Select a user to switch to",
+    "enterPin": "Enter PIN to confirm",
+    "invalidPin": "Invalid PIN",
+    "error": "Switch failed",
+    "switched": "Switched to {{name}}",
+    "back": "Back",
+    "noPinTitle": "PIN Not Set",
+    "noPinDesc": "This employee has no PIN configured. Ask an admin to set a PIN from the Staff Management page before they can log in."
+  },
+  "pwStrength": {
+    "weak": "Weak",
+    "fair": "Fair",
+    "good": "Good",
+    "strong": "Strong"
+  },
+  "shifts": {
+    "title": "Cashier Shifts",
+    "subtitle": "Track your work sessions and sales",
+    "activeShift": "Active Shift",
+    "startedAt": "Started at",
+    "startShift": "Start Shift",
+    "endShift": "End Shift",
+    "noActive": "No active shift",
+    "startPrompt": "Start your shift to begin tracking sales and orders",
+    "history": "Shift History",
+    "noHistory": "No closed shifts yet",
+    "orders": "Orders",
+    "sales": "Sales",
+    "returns": "Returns",
+    "discounts": "Discounts",
+    "cancellations": "Cancellations"
+  },
+  "pin": {
+    "set": "Set PIN",
+    "change": "Change PIN",
+    "clear": "Remove PIN",
+    "placeholder": "6-digit PIN",
+    "success": "PIN updated",
+    "error": "Failed to update PIN",
+    "label": "Cashier PIN (6 digits)"
+  },
+  "masterPassword": {
+    "title": "Master Password",
+    "subtitle": "Protects sensitive operations",
+    "status": "Status",
+    "active": "Active",
+    "notSet": "Not configured",
+    "create": "Create Master Password",
+    "change": "Change Master Password",
+    "created": "Master password created",
+    "changed": "Master password changed",
+    "createFailed": "Failed to create master password",
+    "changeFailed": "Failed to change master password",
+    "currentPassword": "Current password",
+    "newPassword": "New password (min 8 chars)",
+    "confirmPassword": "Confirm password",
+    "mismatch": "Passwords do not match",
+    "minLength": "Minimum 8 characters required",
+    "backupCodes": "Backup Codes",
+    "backupCodesInfo": "Store these codes somewhere safe. Each code can only be used once.",
+    "copyCodes": "Copy Codes",
+    "savedClose": "Saved, Close",
+    "createdAt": "Created",
+    "lastChanged": "Last Changed",
+    "usageCount": "Usage Count",
+    "incorrect": "Current password incorrect",
+    "verify": "Verify Master Password",
+    "verifyPrompt": "Enter master password to proceed",
+    "verifyFailed": "Incorrect master password",
+    "notConfigured": "Master password not configured for this tenant"
+  },
+  "gates": {
+    "title": "Permission Gates",
+    "subtitle": "Control which operations require master password",
+    "info": "Permission gates define which operations require the master password before execution.",
+    "needsPassword": "Needs password",
+    "enabled": "Enabled",
+    "disable": "Disable gate",
+    "enable": "Enable gate",
+    "disablePassword": "Disable password requirement",
+    "enablePassword": "Enable password requirement",
+    "updateFailed": "Update failed",
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  }
+}

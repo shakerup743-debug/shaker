@@ -10,6 +10,7 @@ import {
 } from "@workspace/api-zod";
 import { logger } from "../lib/logger.js";
 import { sseBroker } from "../lib/sse-broker.js";
+import { socketBroker } from "../lib/socket-broker.js";
 import { requireTenant } from "../middleware/require-tenant.js";
 
 const router: IRouter = Router();
@@ -94,6 +95,20 @@ router.patch("/kitchen/tickets/:id/status", async (req, res): Promise<void> => {
     type: "ticket:updated",
     data: { ticketId: ticket.id, status: parsed.data.status, orderId: ticket.orderId },
   });
+  socketBroker.emit({
+    type: "ticket:updated",
+    payload: { ticketId: ticket.id, status: parsed.data.status, orderId: ticket.orderId },
+    tenantId: tid,
+    timestamp: new Date().toISOString(),
+  });
+  if (parsed.data.status === "ready") {
+    socketBroker.emit({
+      type: "order:ready",
+      payload: { orderId: ticket.orderId },
+      tenantId: tid,
+      timestamp: new Date().toISOString(),
+    });
+  }
 
   res.json(result);
 });
@@ -157,6 +172,17 @@ router.patch("/kitchen/availability/:productId", async (req, res): Promise<void>
       reason: available ? null : (reason ?? null),
       changedBy: changedBy ?? "kitchen",
     },
+  });
+  socketBroker.emit({
+    type: available ? "product:available" : "product:unavailable",
+    payload: {
+      productId: product.id,
+      productName: product.name,
+      reason: available ? null : (reason ?? null),
+      changedBy: changedBy ?? "kitchen",
+    },
+    tenantId: tid,
+    timestamp: new Date().toISOString(),
   });
 
   void logger.info({ productId: product.id, available, reason, until: untilDate }, "Kitchen availability changed");
