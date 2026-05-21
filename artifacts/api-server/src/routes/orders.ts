@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lt } from "drizzle-orm";
+import { eq, and, gte, lt, sql } from "drizzle-orm";
 import {
   ordersTable,
   orderItemsTable,
@@ -176,6 +176,41 @@ router.post("/orders", async (req, res): Promise<void> => {
 
   await req.db!.insert(orderItemsTable).values(itemsToInsert.map((i) => ({ ...i, orderId: order.id })));
   await req.db!.insert(kitchenTicketsTable).values({ orderId: order.id, tenantId: tid, status: "new" });
+
+  // ── Discount audit trail (mandatory when a discount is applied) ──────
+  // The cashier-side dialog (DiscountDialog) collects the audit metadata
+  // and pipes it into the order payload as `discountAudit`. We persist it
+  // verbatim to `discount_logs` so the owner can audit every applied
+  // discount in the reports page (manager.kind, customer, coupon, etc).
+  type DiscountAudit = {
+    kind?: string;
+    customerName?: string;
+    customerPhone?: string;
+    couponCode?: string;
+    reason?: string;
+    discountType?: string;
+    discountValue?: number;
+  };
+  const audit = (req.body as { discountAudit?: DiscountAudit }).discountAudit;
+  if (audit && discount > 0) {
+    const userId = (req as Request & { user?: { userId?: number; name?: string } }).user?.userId ?? null;
+    const userName = (req as Request & { user?: { name?: string } }).user?.name ?? null;
+    await req.db!.execute(sql`
+      INSERT INTO discount_logs (
+        tenant_id, order_id, cashier_id, cashier_name,
+        reason, discount_kind, coupon_code,
+        customer_name, customer_phone,
+        discount_type, discount_value,
+        order_subtotal, order_total_after
+      ) VALUES (
+        ${tid}, ${order.id}, ${userId}, ${userName},
+        ${audit.reason ?? audit.kind ?? "other"}, ${audit.kind ?? null}, ${audit.couponCode ?? null},
+        ${audit.customerName ?? null}, ${audit.customerPhone ?? null},
+        ${audit.discountType ?? "amount"}, ${audit.discountValue ?? discount},
+        ${subtotal}, ${total}
+      )
+    `);
+  }
 
   const result = await getOrderWithItems(req.db!, order.id, tid);
   sseBroker.emit({ type: "order:created", data: { orderId: order.id, orderNumber: order.orderNumber, type: order.type } });

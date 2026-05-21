@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Layers,
@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { AmendmentDialog, type AmendmentOrder } from "@/components/amendment-dialog";
 import { InvoiceModal, type InvoiceData } from "@/components/invoice-modal";
+import { DiscountDialog } from "@/components/discount-dialog";
 import {
   useListCategories,
   useListProducts,
@@ -56,6 +57,19 @@ export default function PosPage() {
   const [tableNumber, setTableNumber] = useState("");
   const [discountInput, setDiscountInput] = useState(0);
   const [discountType, setDiscountType] = useState<"percent" | "fixed">("percent");
+  /** Audit metadata gathered by the mandatory <DiscountDialog />. Sent to
+   *  the backend as `discountAudit` so every applied discount is logged
+   *  with cashier/customer/kind/coupon for the owner's reports. */
+  const [discountAudit, setDiscountAudit] = useState<{
+    kind: string; reason: string;
+    customerName?: string; customerPhone?: string;
+    couponCode?: string;
+    discountType: "percent" | "amount";
+    discountValue: number;
+  } | null>(null);
+  const [discountOpen, setDiscountOpen] = useState(false);
+  /** Tenant-level master switch / max-cap, fetched once on mount. */
+  const [discountCfg, setDiscountCfg] = useState<{ enabled: boolean; maxPercent: number }>({ enabled: true, maxPercent: 15 });
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "mixed">("cash");
   const [amountPaid, setAmountPaid] = useState("");
@@ -71,6 +85,15 @@ export default function PosPage() {
   const [showActiveOrders, setShowActiveOrders] = useState(false);
   const [amendOrder, setAmendOrder] = useState<AmendmentOrder | null>(null);
   const newOrderIdsRef = useRef<Set<number>>(new Set());
+
+  // Fetch tenant-level discount config (master switch + max-cap)
+  useEffect(() => {
+    const token = localStorage.getItem("foodoro-token");
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+    void fetch("/api/discounts/config", { headers }).then(async (r) => {
+      if (r.ok) setDiscountCfg(await r.json());
+    });
+  }, []);
 
   const today = new Date().toISOString().split("T")[0]!;
 
@@ -203,6 +226,13 @@ export default function PosPage() {
       })),
       tableNumber: tableNumber || undefined,
       discount: discount || undefined,
+      // Audit trail required by the owner's discount policy. When a manual
+      // discount is applied via the mandatory <DiscountDialog />, this
+      // metadata is sent so the backend logs the kind/customer/coupon for
+      // the reports page. `undefined` is fine when no discount is applied.
+      ...(discountAudit && discount > 0
+        ? { discountAudit }
+        : {}),
       notes: generalNote || undefined,
       paymentMethod: method,
       amountPaid: paidAmount,
@@ -218,6 +248,7 @@ export default function PosPage() {
     const resetCart = () => {
       setCart([]);
       setDiscountInput(0);
+      setDiscountAudit(null);
       setTableNumber("");
       setPaymentOpen(false);
       setNotes({ general: "", priority: "medium", isSpecial: false, itemNotes: {}, expandedItems: {} });
@@ -690,33 +721,55 @@ export default function PosPage() {
           </div>
         )}
 
-        {/* Discount row */}
+        {/* Discount button — opens mandatory dialog */}
         {cart.length > 0 && (
           <div className="px-3 py-2 border-t border-border">
-            <div className="flex items-center gap-2">
-              <Tag size={13} className="text-muted-foreground shrink-0" />
-              <div className="flex flex-1 rounded-xl overflow-hidden border border-border bg-background">
-                <Input
-                  type="number"
-                  min={0}
-                  max={discountType === "percent" ? 100 : undefined}
-                  placeholder={isAr ? "خصم" : "Discount"}
-                  className="h-7 text-sm border-0 bg-transparent flex-1 focus-visible:ring-0"
-                  value={discountInput || ""}
-                  onChange={(e) => setDiscountInput(parseFloat(e.target.value) || 0)}
-                  data-testid="input-discount"
-                />
+            <button
+              type="button"
+              onClick={() => {
+                if (!discountCfg.enabled) {
+                  toast({
+                    title: isAr ? "الخصومات معطلة" : "Discounts disabled",
+                    description: isAr ? "الخصومات معطلة حالياً من قبل الإدارة." : "Discounts are currently disabled by management.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                setDiscountOpen(true);
+              }}
+              data-testid="open-discount-dialog"
+              className={`relative w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-colors ${
+                !discountCfg.enabled
+                  ? "border-destructive/40 bg-destructive/10 text-destructive"
+                  : discount > 0
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                    : "border-border bg-background hover:border-primary/40 text-foreground"
+              }`}
+            >
+              <span className="flex items-center gap-2 text-sm">
+                <Tag size={14} />
+                {discount > 0
+                  ? (isAr ? `خصم مُطبَّق — ${format(discount)}` : `Discount applied — ${format(discount)}`)
+                  : (isAr ? "إضافة خصم" : "Add Discount")}
+              </span>
+              {!discountCfg.enabled && (
+                <span className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" title={isAr ? "معطل" : "Disabled"} />
+              )}
+              {discount > 0 && (
                 <button
                   type="button"
-                  onClick={() => { setDiscountInput(0); setDiscountType(t => t === "percent" ? "fixed" : "percent"); }}
-                  className="px-2.5 h-7 text-xs font-semibold border-s border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-                  data-testid="button-discount-type"
-                  title={discountType === "percent" ? (isAr ? "تبديل لمبلغ ثابت" : "Switch to fixed amount") : (isAr ? "تبديل لنسبة مئوية" : "Switch to percentage")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDiscountInput(0);
+                    setDiscountAudit(null);
+                  }}
+                  className="text-xs text-destructive hover:underline"
+                  data-testid="clear-discount"
                 >
-                  {discountType === "percent" ? "%" : (isAr ? "ر.س" : "SAR")}
+                  ×
                 </button>
-              </div>
-            </div>
+              )}
+            </button>
           </div>
         )}
 
@@ -997,6 +1050,23 @@ export default function PosPage() {
       {invoiceData && (
         <InvoiceModal data={invoiceData} onClose={() => setInvoiceData(null)} />
       )}
+
+      {/* Mandatory discount dialog — gathers audit metadata + enforces caps */}
+      <DiscountDialog
+        open={discountOpen}
+        onClose={() => setDiscountOpen(false)}
+        orderId={0}
+        orderSubtotal={rawSubtotal}
+        onApplied={({ computedDiscount, audit }) => {
+          // The dialog gives us a final computed amount; we mirror it into
+          // the local cart state as a FIXED amount so the cashier sees the
+          // exact value. The audit metadata travels with the order to
+          // backend, which writes it to discount_logs.
+          setDiscountType("fixed");
+          setDiscountInput(computedDiscount);
+          setDiscountAudit(audit);
+        }}
+      />
 
       <AmendmentDialog
         open={amendOrder !== null}

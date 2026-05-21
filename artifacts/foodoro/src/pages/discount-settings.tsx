@@ -7,7 +7,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Percent, Hash, ListChecks, Tag, AlertTriangle, Check } from "lucide-react";
+import { Save, Percent, Hash, ListChecks, Tag, AlertTriangle, Check, Power, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -60,6 +60,28 @@ export default function DiscountSettingsPage(): JSX.Element {
     },
   });
 
+  // Master switch + tenant-wide cap
+  const { data: cfg } = useQuery<{ enabled: boolean; maxPercent: number }>({
+    queryKey: ["discounts-config"],
+    queryFn: async () => {
+      const r = await fetch("/api/discounts/config", { headers: authHeaders() });
+      return r.ok ? r.json() : { enabled: true, maxPercent: 15 };
+    },
+  });
+  const updateConfig = useMutation({
+    mutationFn: async (patch: { enabled?: boolean; maxPercent?: number }) => {
+      const r = await fetch("/api/discounts/config", {
+        method: "PUT", headers: authHeaders(), body: JSON.stringify(patch),
+      });
+      if (!r.ok) throw new Error("failed");
+      return r.json();
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["discounts-config"] });
+      toast({ title: "تم حفظ الإعدادات" });
+    },
+  });
+
   const { data: logsData } = useQuery<{ logs: DiscountLog[] }>({
     queryKey: ["discount-logs"],
     queryFn: async () => {
@@ -102,6 +124,55 @@ export default function DiscountSettingsPage(): JSX.Element {
   return (
     <div className="h-full overflow-y-auto bg-background">
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-8" data-testid="discount-settings-page">
+        {/* ── Master ON/OFF + Tenant cap ─────────────────────────── */}
+        <section
+          className={`rounded-2xl border-2 p-5 transition-colors ${
+            cfg?.enabled
+              ? "border-primary/30 bg-primary/5"
+              : "border-destructive/40 bg-destructive/10"
+          }`}
+          data-testid="discount-master-panel"
+        >
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+                cfg?.enabled ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"
+              }`}>
+                <Power size={20} />
+              </div>
+              <div>
+                <h2 className="font-bold text-base flex items-center gap-2">
+                  {cfg?.enabled ? "الخصومات مفعّلة" : "الخصومات معطلة"}
+                  {!cfg?.enabled && <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {cfg?.enabled
+                    ? "الكاشير يرى زر الخصم ويعمل بشكل طبيعي."
+                    : "الكاشير يرى علامة حمراء بجانب زر الخصم ولا يمكنه تطبيق أي خصم."}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col items-end gap-1">
+                <Label className="text-[10px] text-muted-foreground">الحد الأقصى للخصم %</Label>
+                <Input
+                  type="number" min={0} max={100}
+                  value={String(cfg?.maxPercent ?? 15)}
+                  onChange={(e) => updateConfig.mutate({ maxPercent: Number(e.target.value) || 0 })}
+                  className="h-9 w-20 bg-background text-center font-bold"
+                  data-testid="input-tenant-max-percent"
+                />
+              </div>
+              <Switch
+                checked={!!cfg?.enabled}
+                onCheckedChange={(v) => updateConfig.mutate({ enabled: v })}
+                data-testid="switch-discounts-master"
+                className="scale-125"
+              />
+            </div>
+          </div>
+        </section>
+
         <header className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -212,7 +283,30 @@ export default function DiscountSettingsPage(): JSX.Element {
             <h2 className="text-base font-semibold flex items-center gap-2">
               <ListChecks className="w-4 h-4 text-primary" /> سجل الخصومات الأخيرة
             </h2>
-            <span className="text-xs text-muted-foreground">{logsData?.logs?.length ?? 0} سجل</span>
+            <div className="flex items-center gap-2">
+              <a
+                href="/api/discount-logs/export.xlsx"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  const t = localStorage.getItem("foodoro-token");
+                  const r = await fetch("/api/discount-logs/export.xlsx", {
+                    headers: t ? { Authorization: `Bearer ${t}` } : {},
+                  });
+                  const blob = await r.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `discounts-${new Date().toISOString().slice(0,10)}.xlsx`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                data-testid="export-discount-logs"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <Download size={12} /> تصدير Excel
+              </a>
+              <span className="text-xs text-muted-foreground">{logsData?.logs?.length ?? 0} سجل</span>
+            </div>
           </div>
           {(logsData?.logs?.length ?? 0) === 0 ? (
             <div className="px-5 py-10 text-center text-sm text-muted-foreground">
