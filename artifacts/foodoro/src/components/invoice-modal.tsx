@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 import { X, Printer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -31,6 +31,17 @@ interface Props {
   onClose: () => void;
 }
 
+interface InvoiceSettings {
+  logoUrl?: string | null;
+  restaurantName?: string | null;
+  paperSize?: string;
+  invoiceType?: string;
+  welcomeMessage?: string | null;
+  showTax?: boolean;
+  showLogo?: boolean;
+  footerText?: string | null;
+}
+
 const ORDER_TYPE_LABELS: Record<string, { en: string; ar: string }> = {
   dine_in: { en: "Dine In", ar: "داخل المطعم" },
   takeaway: { en: "Takeaway", ar: "طلب خارجي" },
@@ -43,8 +54,17 @@ const PAYMENT_LABELS: Record<string, { en: string; ar: string }> = {
   mixed: { en: "Mixed", ar: "مختلط" },
 };
 
-function fmt(n: number) {
-  return n.toFixed(2);
+function fmt(n: number) { return n.toFixed(2); }
+
+/** Paper-size → CSS width + @page rule. Thermal sizes have no margins. */
+function paperCss(size: string): { bodyWidth: string; pageRule: string; basePadding: string } {
+  switch (size) {
+    case "58mm": return { bodyWidth: "58mm",  pageRule: "@page { size: 58mm auto; margin: 0; }",  basePadding: "4mm" };
+    case "A5":   return { bodyWidth: "148mm", pageRule: "@page { size: A5; margin: 10mm; }",       basePadding: "0" };
+    case "A4":   return { bodyWidth: "210mm", pageRule: "@page { size: A4; margin: 15mm; }",       basePadding: "0" };
+    case "80mm":
+    default:     return { bodyWidth: "80mm",  pageRule: "@page { size: 80mm auto; margin: 0; }",  basePadding: "5mm" };
+  }
 }
 
 export function InvoiceModal({ data, onClose }: Props) {
@@ -52,34 +72,71 @@ export function InvoiceModal({ data, onClose }: Props) {
   const isAr = i18n.language === "ar";
   const printRef = useRef<HTMLDivElement>(null);
 
+  // ── Fetch tenant invoice customization (logo, paper size, welcome, footer, QR)
+  const [settings, setSettings] = useState<InvoiceSettings | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("foodoro-token");
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+    void (async () => {
+      try {
+        const [sRes, qRes] = await Promise.all([
+          fetch("/api/invoice-settings", { headers }),
+          fetch("/api/invoice-settings/qr", { headers }),
+        ]);
+        if (sRes.ok) {
+          const sJson = (await sRes.json()) as { settings: InvoiceSettings | null };
+          setSettings(sJson.settings);
+        }
+        if (qRes.ok) {
+          const qJson = (await qRes.json()) as { dataUrl?: string };
+          setQrDataUrl(qJson.dataUrl ?? null);
+        }
+      } catch { /* offline / new tenant → fall back to defaults */ }
+    })();
+  }, []);
+
   const handlePrint = () => {
     const content = printRef.current;
     if (!content) return;
-    const w = window.open("", "_blank", "width=400,height=750");
+    const w = window.open("", "_blank", "width=400,height=900");
     if (!w) return;
+    const paperSize = settings?.paperSize ?? "80mm";
+    const { bodyWidth, pageRule, basePadding } = paperCss(paperSize);
+    const isThermal = paperSize === "58mm" || paperSize === "80mm";
+    const fontSize = paperSize === "58mm" ? 11 : paperSize === "80mm" ? 13 : 14;
+
     w.document.write(`<!DOCTYPE html>
-<html dir="${isAr ? "rtl" : "ltr"}">
+<html dir="${isAr ? "rtl" : "ltr"}" lang="${isAr ? "ar" : "en"}">
 <head>
 <meta charset="UTF-8">
 <title>Invoice #${data.orderId}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: 13px; color: #111; background: #fff; padding: 16px; max-width: 320px; }
-  .logo { font-size: 22px; font-weight: 900; text-align: center; letter-spacing: 2px; }
+  body { font-family: ${isThermal ? "'Courier New', monospace" : "Arial, sans-serif"};
+         font-size: ${fontSize}px; color: #111; background: #fff;
+         padding: ${basePadding}; width: ${bodyWidth}; margin: 0 auto; }
+  .logo-img { display: block; margin: 0 auto 6px auto; max-width: 60%; max-height: ${isThermal ? "70px" : "100px"}; object-fit: contain; }
+  .restaurant-name { font-size: ${fontSize + 5}px; font-weight: 900; text-align: center; letter-spacing: 1px; margin-bottom: 4px; }
+  .welcome { text-align: center; font-size: ${fontSize - 1}px; color: #333; margin-bottom: 6px; padding: 0 4px; }
   .center { text-align: center; }
-  .divider { border-top: 1px dashed #999; margin: 8px 0; }
+  .divider { border-top: 1px dashed #999; margin: 6px 0; }
   .row { display: flex; justify-content: space-between; align-items: flex-start; margin: 3px 0; }
-  .row .name { flex: 1; }
-  .row .qty { width: 32px; text-align: center; }
-  .row .price { width: 72px; text-align: end; }
   .bold { font-weight: 700; }
-  .total-row { font-size: 15px; font-weight: 900; }
-  .meta { color: #555; font-size: 11px; }
-  .footer { text-align: center; font-size: 11px; color: #777; margin-top: 12px; }
-  .note-general { background: #fff8e7; border: 1px solid #f0c040; padding: 6px 8px; margin: 6px 0; font-size: 11px; border-radius: 4px; }
-  .note-item { font-size: 10px; color: #b45309; margin-top: 2px; padding-inline-start: 8px; }
+  .total-row { font-size: ${fontSize + 3}px; font-weight: 900; padding: 4px 0; border-top: 2px solid #000; border-bottom: 2px solid #000; }
+  .meta { color: #555; font-size: ${fontSize - 2}px; }
+  .qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 10px 0 6px 0; }
+  .qr-wrap img { width: ${isThermal ? "70px" : "100px"}; height: ${isThermal ? "70px" : "100px"}; }
+  .qr-caption { font-size: ${fontSize - 3}px; color: #444; }
+  .footer { text-align: center; font-size: ${fontSize - 2}px; color: #444; margin-top: 8px; padding: 4px 8px; line-height: 1.4; }
+  .note-general { background: #fff8e7; border: 1px solid #f0c040; padding: 6px 8px; margin: 6px 0; font-size: ${fontSize - 2}px; border-radius: 4px; }
+  .note-item { font-size: ${fontSize - 3}px; color: #b45309; margin-top: 2px; padding-inline-start: 8px; }
   .urgent { background: #fee2e2; border: 1px solid #f87171; color: #b91c1c; }
-  @media print { body { padding: 0; } }
+  ${pageRule}
+  @media print {
+    body { padding: ${basePadding}; }
+  }
 </style>
 </head>
 <body>
@@ -88,7 +145,7 @@ ${content.innerHTML}
 </html>`);
     w.document.close();
     w.focus();
-    setTimeout(() => { w.print(); w.close(); }, 300);
+    setTimeout(() => { w.print(); w.close(); }, 400);
   };
 
   const now = data.createdAt ? new Date(data.createdAt) : new Date();
@@ -97,7 +154,13 @@ ${content.innerHTML}
   const orderTypeLabel = ORDER_TYPE_LABELS[data.orderType]?.[isAr ? "ar" : "en"] ?? data.orderType;
   const paymentLabel = PAYMENT_LABELS[data.paymentMethod]?.[isAr ? "ar" : "en"] ?? data.paymentMethod;
   const currency = isAr ? "ر.س" : "SAR";
-  const baseAmount = data.total - data.discount;
+
+  const restaurantName = settings?.restaurantName?.trim() || "FOODPRO";
+  const welcome = settings?.welcomeMessage?.trim() ?? "";
+  const footer = settings?.footerText?.trim() ?? (isAr ? "شكراً لزيارتكم • Powered by FOODPRO" : "Thank you for your visit • Powered by FOODPRO");
+  const showLogo = settings?.showLogo !== false;
+  const showTax = settings?.showTax !== false;
+  const logoUrl = showLogo ? settings?.logoUrl ?? "" : "";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -105,9 +168,11 @@ ${content.innerHTML}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 className="font-bold text-foreground text-sm">
             {isAr ? `فاتورة رقم #${data.orderId}` : `Invoice #${data.orderId}`}
+            <span className="text-[10px] text-muted-foreground ms-2">{settings?.paperSize ?? "80mm"}</span>
           </h2>
           <div className="flex items-center gap-2">
             <button
+              data-testid="invoice-print-btn"
               onClick={handlePrint}
               className="flex items-center gap-1.5 bg-primary text-white rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-primary/90 transition-colors"
             >
@@ -123,12 +188,18 @@ ${content.innerHTML}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
-          <div ref={printRef} dir={isAr ? "rtl" : "ltr"}>
-            <div className="logo center" style={{ marginBottom: 8 }}>FOODPRO</div>
-            <div className="center meta" style={{ marginBottom: 4 }}>
-              {isAr ? "نظام نقطة البيع" : "Point of Sale System"}
-            </div>
+        <div className="flex-1 overflow-y-auto p-4 bg-white">
+          {/* The on-screen preview mirrors EXACTLY what gets printed. The
+              ref captures innerHTML and dumps it into a print window with
+              identical CSS — so what-you-see-is-what-you-print. */}
+          <div ref={printRef} dir={isAr ? "rtl" : "ltr"} className="text-black" style={{ fontFamily: "'Courier New', monospace", fontSize: 13 }}>
+            {/* Logo */}
+            {logoUrl && (
+              <img src={logoUrl} alt="logo" className="logo-img"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+            )}
+            <div className="restaurant-name">{restaurantName}</div>
+            {welcome && <div className="welcome">{welcome}</div>}
             <div className="divider" />
 
             <div className="row meta">
@@ -148,48 +219,36 @@ ${content.innerHTML}
               <span>{paymentLabel}</span>
             </div>
 
-            {/* Special / urgent note banner */}
             {data.isSpecial && (
-              <div className={`note-general urgent`} style={{ marginTop: 6 }}>
-                ⚠️ {isAr ? "طلب عاجل — انتبه!" : "URGENT ORDER — Pay attention!"}
+              <div className="note-general urgent" style={{ marginTop: 6 }}>
+                ⚠ {isAr ? "طلب عاجل — انتبه!" : "URGENT ORDER — Pay attention!"}
               </div>
             )}
-
-            {/* General note */}
             {data.generalNote && !data.isSpecial && (
-              <div className="note-general">
-                📝 {data.generalNote}
-              </div>
+              <div className="note-general">📝 {data.generalNote}</div>
             )}
 
             <div className="divider" />
 
-            <div className="row meta bold" style={{ marginBottom: 4 }}>
+            <div className="row meta bold">
               <span style={{ flex: 1 }}>{isAr ? "الصنف" : "Item"}</span>
               <span style={{ width: 32, textAlign: "center" }}>{isAr ? "كمية" : "Qty"}</span>
-              <span style={{ width: 72, textAlign: "end" }}>{isAr ? "السعر" : "Price"}</span>
+              <span style={{ width: 72, textAlign: isAr ? "left" : "right" }}>{isAr ? "السعر" : "Price"}</span>
             </div>
 
             {data.items.map((item, i) => (
               <div key={i} style={{ marginBottom: 4 }}>
                 <div className="row">
-                  <span style={{ flex: 1 }}>
-                    {isAr && item.nameAr ? item.nameAr : item.name}
-                  </span>
+                  <span style={{ flex: 1 }}>{isAr && item.nameAr ? item.nameAr : item.name}</span>
                   <span style={{ width: 32, textAlign: "center" }}>{item.quantity}</span>
-                  <span style={{ width: 72, textAlign: "end" }}>
-                    {fmt(item.unitPrice * item.quantity)}
-                  </span>
+                  <span style={{ width: 72, textAlign: isAr ? "left" : "right" }}>{fmt(item.unitPrice * item.quantity)}</span>
                 </div>
-                {item.itemNote && (
-                  <div className="note-item">↳ {item.itemNote}</div>
-                )}
+                {item.itemNote && <div className="note-item">↳ {item.itemNote}</div>}
               </div>
             ))}
 
             <div className="divider" />
 
-            {/* TAX INCLUSIVE display */}
             <div className="row">
               <span className="meta">{isAr ? "المجموع الفرعي" : "Subtotal"}</span>
               <span className="meta">{currency} {fmt(data.subtotal)}</span>
@@ -200,22 +259,28 @@ ${content.innerHTML}
                 <span className="meta" style={{ color: "#ef4444" }}>− {currency} {fmt(data.discount)}</span>
               </div>
             )}
-            <div className="row">
-              <span className="meta">{isAr ? "منها ضريبة القيمة المضافة (15%)" : "Incl. VAT (15%)"}</span>
-              <span className="meta">{currency} {fmt(data.tax)}</span>
-            </div>
+            {showTax && (
+              <div className="row">
+                <span className="meta">{isAr ? "ضريبة القيمة المضافة (15%)" : "VAT (15%)"}</span>
+                <span className="meta">{currency} {fmt(data.tax)}</span>
+              </div>
+            )}
 
-            <div className="divider" />
-
-            <div className="row total-row">
-              <span>{isAr ? "الإجمالي المستحق" : "Total Due"}</span>
+            <div className="row total-row" style={{ marginTop: 6 }}>
+              <span>{isAr ? "الإجمالي" : "Total"}</span>
               <span>{currency} {fmt(data.total)}</span>
             </div>
 
+            {/* QR Code (auto-generated from /api/invoice-settings/qr) */}
+            {qrDataUrl && (
+              <div className="qr-wrap">
+                <img src={qrDataUrl} alt="qr" />
+                <div className="qr-caption">{isAr ? "امسح للقائمة الرقمية" : "Scan for digital menu"}</div>
+              </div>
+            )}
+
             <div className="divider" />
-            <div className="footer">
-              {isAr ? "شكراً لزيارتكم • Powered by FOODPRO" : "Thank you for your visit • Powered by FOODPRO"}
-            </div>
+            <div className="footer">{footer}</div>
           </div>
         </div>
       </div>

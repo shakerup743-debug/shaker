@@ -93,6 +93,148 @@ function CurrencySelector() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   TOOLS MENU — dropdown holding low-frequency utilities
+   (Kitchen, Amendments, Notifications, Language switcher).
+   Keeps the main rail uncluttered per UX spec.
+═══════════════════════════════════════════════════════ */
+interface ToolsMenuProps {
+  notifications: ReturnType<typeof useNotifications>["notifications"];
+  onReadAll: () => void;
+  onClearAll: () => void;
+}
+function ToolsMenu({ notifications, onReadAll, onClearAll }: ToolsMenuProps) {
+  const { t, i18n } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"root" | "notifications" | "language">("root");
+  const [, navigate] = useLocation();
+  const unread = notifications.filter((n) => !n.read).length;
+
+  const close = () => { setOpen(false); setView("root"); };
+
+  return (
+    <DropdownMenu open={open} onOpenChange={(v) => { setOpen(v); if (!v) setView("root"); }}>
+      <DropdownMenuTrigger asChild>
+        <button
+          data-testid="button-tools-menu"
+          className="relative w-10 h-10 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
+          title={i18n.language === "ar" ? "الأدوات" : "Tools"}
+        >
+          <Settings size={15} />
+          {unread > 0 && (
+            <span className="absolute -top-1 -end-1 w-4 h-4 bg-destructive rounded-full flex items-center justify-center text-[9px] text-white font-bold">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end" side="right"
+        className="bg-card border-border text-foreground w-72 max-h-[480px] overflow-y-auto"
+      >
+        {view === "root" && (
+          <>
+            {/* Tool pages */}
+            {TOOL_ITEMS.map((item) => (
+              <DropdownMenuItem
+                key={item.path}
+                data-testid={item.testId}
+                onClick={() => { navigate(item.path); close(); }}
+                className="flex items-center gap-3 cursor-pointer py-2.5"
+              >
+                <item.icon size={16} className="text-primary" />
+                <span className="text-sm">{t(item.labelKey)}</span>
+              </DropdownMenuItem>
+            ))}
+            {/* Notifications expander */}
+            <DropdownMenuItem
+              data-testid="tool-notifications"
+              onClick={(e) => { e.preventDefault(); setView("notifications"); }}
+              className="flex items-center justify-between gap-3 cursor-pointer py-2.5"
+            >
+              <span className="flex items-center gap-3">
+                <Bell size={16} className="text-primary" />
+                <span className="text-sm">{i18n.language === "ar" ? "الإشعارات" : "Notifications"}</span>
+              </span>
+              {unread > 0 && (
+                <span className="text-[10px] bg-destructive text-white rounded-full px-1.5 py-0.5">{unread}</span>
+              )}
+            </DropdownMenuItem>
+            {/* Language expander */}
+            <DropdownMenuItem
+              data-testid="tool-language"
+              onClick={(e) => { e.preventDefault(); setView("language"); }}
+              className="flex items-center justify-between gap-3 cursor-pointer py-2.5"
+            >
+              <span className="flex items-center gap-3">
+                <span className="text-base leading-none">
+                  {SUPPORTED_LANGUAGES.find((l) => l.code === i18n.language)?.flag ?? "🌐"}
+                </span>
+                <span className="text-sm">{i18n.language === "ar" ? "اللغة" : "Language"}</span>
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {SUPPORTED_LANGUAGES.find((l) => l.code === i18n.language)?.nameNative ?? "—"}
+              </span>
+            </DropdownMenuItem>
+          </>
+        )}
+
+        {view === "notifications" && (
+          <div className="p-2">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <button onClick={() => setView("root")} className="text-xs text-muted-foreground hover:text-foreground">← {i18n.language === "ar" ? "رجوع" : "Back"}</button>
+              <div className="flex items-center gap-2">
+                <button onClick={onReadAll} className="text-[10px] text-primary hover:underline">{i18n.language === "ar" ? "قراءة الكل" : "Mark all read"}</button>
+                <button onClick={onClearAll} className="text-[10px] text-destructive hover:underline">{i18n.language === "ar" ? "مسح الكل" : "Clear"}</button>
+              </div>
+            </div>
+            <div className="max-h-72 overflow-y-auto space-y-1">
+              {notifications.length === 0 ? (
+                <div className="text-center text-xs text-muted-foreground py-6">
+                  {i18n.language === "ar" ? "لا توجد إشعارات" : "No notifications"}
+                </div>
+              ) : (
+                notifications.slice(0, 30).map((n) => (
+                  <div key={n.id} className={`rounded-md px-2 py-2 text-xs ${n.read ? "bg-background/50 text-muted-foreground" : "bg-primary/10 text-foreground"}`}>
+                    <div className="font-semibold">{n.title}</div>
+                    {n.description && <div className="text-[11px] mt-0.5 opacity-80">{n.description}</div>}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {view === "language" && (
+          <div className="p-2">
+            <button onClick={() => setView("root")} className="text-xs text-muted-foreground hover:text-foreground mb-2 px-1">
+              ← {i18n.language === "ar" ? "رجوع" : "Back"}
+            </button>
+            <div className="max-h-80 overflow-y-auto">
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <button
+                  key={l.code}
+                  data-testid={`tool-lang-${l.code}`}
+                  onClick={() => { void i18n.changeLanguage(l.code); localStorage.setItem("foodoro-lang", l.code); close(); }}
+                  className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent ${
+                    l.code === i18n.language ? "bg-primary/10 text-primary font-semibold" : ""
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-base leading-none">{l.flag}</span>
+                    <span>{l.nameNative}</span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">{l.nameEn}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
    LANGUAGE TOGGLE (25 languages)
 ═══════════════════════════════════════════════════════ */
 function LanguageToggle() {
@@ -147,12 +289,24 @@ function LiveClock() {
 /* ═══════════════════════════════════════════════════════
    CASHIER ITEMS — always visible in the sidebar
 ═══════════════════════════════════════════════════════ */
+/**
+ * Primary rail items — always-visible, 3 entries only (per UX spec):
+ *   1. POS (Point of Sale)
+ *   2. QR Orders (table invoices)
+ *   3. Tables
+ * Everything else (Kitchen, Amendments, Notifications, Language) lives
+ * inside the floating Tools menu so the rail stays uncluttered.
+ */
 const CASHIER_ITEMS = [
   { path: "/",                    icon: ShoppingCart, labelKey: "nav.pos",                testId: "nav-pos" },
-  { path: "/kitchen",             icon: ChefHat,      labelKey: "nav.kitchen",            testId: "nav-kitchen" },
   { path: "/qr-orders",           icon: Receipt,      labelKey: "nav.qrOrders",           testId: "nav-qr-orders-rail" },
   { path: "/tables",              icon: Grid3X3,      labelKey: "nav.tables",             testId: "nav-tables" },
-  { path: "/cashier/amendments",  icon: FileEdit,     labelKey: "nav.cashierAmendments",  testId: "nav-cashier-amendments" },
+] as const;
+
+/** Items hidden inside the "Tools" dropdown next to the avatar. */
+const TOOL_ITEMS = [
+  { path: "/kitchen",             icon: ChefHat,      labelKey: "nav.kitchen",            testId: "tool-kitchen" },
+  { path: "/cashier/amendments",  icon: FileEdit,     labelKey: "nav.cashierAmendments",  testId: "tool-amendments" },
 ] as const;
 
 /* ═══════════════════════════════════════════════════════
@@ -582,11 +736,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         }`}
                     >
                       <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-                      {path === "/kitchen" && (stats?.pendingKitchenTickets ?? 0) > 0 && (
-                        <span className="absolute -top-1 -end-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center text-[9px] text-white font-bold">
-                          {stats!.pendingKitchenTickets}
-                        </span>
-                      )}
                     </button>
                   </Link>
                 </TooltipTrigger>
@@ -673,16 +822,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </TooltipContent>
           </Tooltip>
 
-          <NotificationBell
-            notifications={notifications}
-            onRead={markRead}
-            onReadAll={markAllRead}
-            onDelete={del}
-            onClear={clear}
-          />
-
           <CurrencySelector />
-          <LanguageToggle />
+
+          {/* Consolidated Tools menu (Kitchen, Amendments, Notifications, Language) */}
+          <ToolsMenu
+            notifications={notifications}
+            onReadAll={markAllRead}
+            onClearAll={clear}
+          />
 
           <Tooltip delayDuration={100}>
             <TooltipTrigger asChild>
