@@ -40,6 +40,9 @@ const TenantSettingsPage      = lazy(() => import("@/pages/tenant-settings"));
 const BillingPage             = lazy(() => import("@/pages/billing"));
 const CashierAmendmentsPage   = lazy(() => import("@/pages/cashier-amendments"));
 const SettingsPage            = lazy(() => import("@/pages/settings"));
+const QrOrdersPage            = lazy(() => import("@/pages/qr-orders"));
+const DiscountSettingsPage    = lazy(() => import("@/pages/discount-settings"));
+const InvoiceSettingsPage     = lazy(() => import("@/pages/invoice-settings"));
 const NotFound                = lazy(() => import("@/pages/not-found"));
 
 // Coming-soon variants (split by named export)
@@ -164,6 +167,10 @@ function AppRoutes() {
                   <Route path="/cashier/amendments"      component={CashierAmendmentsPage} />
                   <Route path="/billing"                 component={BillingPage} />
                   <Route path="/settings"                component={SettingsPage} />
+                  <Route path="/qr-orders"               component={QrOrdersPage} />
+                  <Route path="/cashier/qr-orders"       component={QrOrdersPage} />
+                  <Route path="/settings/discounts"      component={DiscountSettingsPage} />
+                  <Route path="/settings/invoice"        component={InvoiceSettingsPage} />
                   <Route                                 component={NotFound} />
                 </Switch>
               </Suspense>

@@ -32,7 +32,11 @@
     "developer": "Developer",
     "settings": "Settings",
     "cashierAmendments": "Amendments",
-    "management": "Management"
+    "management": "Management",
+    "qrOrders": "QR Orders",
+    "qrOrdersAr": "فواتير QR",
+    "discountSettings": "Discount Settings",
+    "invoiceSettings": "Invoice Customization"
   },
   "auth": {
     "login": "Login",
@@ -280,8 +284,13 @@
     },
     "weekday": {
       "title": "Sales by Day of Week",
-      "Sun": "Sun", "Mon": "Mon", "Tue": "Tue", "Wed": "Wed",
-      "Thu": "Thu", "Fri": "Fri", "Sat": "Sat"
+      "Sun": "Sun",
+      "Mon": "Mon",
+      "Tue": "Tue",
+      "Wed": "Wed",
+      "Thu": "Thu",
+      "Fri": "Fri",
+      "Sat": "Sat"
     },
     "dashboardCards": {
       "todayRevenue": "Today Revenue",
@@ -336,14 +345,32 @@
       "sold": "sold"
     },
     "months": {
-      "1": "Jan", "2": "Feb", "3": "Mar", "4": "Apr",
-      "5": "May", "6": "Jun", "7": "Jul", "8": "Aug",
-      "9": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"
+      "1": "Jan",
+      "2": "Feb",
+      "3": "Mar",
+      "4": "Apr",
+      "5": "May",
+      "6": "Jun",
+      "7": "Jul",
+      "8": "Aug",
+      "9": "Sep",
+      "10": "Oct",
+      "11": "Nov",
+      "12": "Dec"
     },
     "monthsFull": {
-      "1": "January", "2": "February", "3": "March", "4": "April",
-      "5": "May", "6": "June", "7": "July", "8": "August",
-      "9": "September", "10": "October", "11": "November", "12": "December"
+      "1": "January",
+      "2": "February",
+      "3": "March",
+      "4": "April",
+      "5": "May",
+      "6": "June",
+      "7": "July",
+      "8": "August",
+      "9": "September",
+      "10": "October",
+      "11": "November",
+      "12": "December"
     },
     "sections": {
       "sales": "Sales",

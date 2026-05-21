@@ -176,6 +176,50 @@ CREATE TABLE IF NOT EXISTS exchange_rates (
   fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (base_currency, target_currency)
 );
+CREATE TABLE IF NOT EXISTS discount_settings (
+  id SERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  role TEXT NOT NULL,
+  max_discount_percent NUMERIC(5,2) DEFAULT 100,
+  max_discount_amount NUMERIC(10,2),
+  max_daily_uses INTEGER DEFAULT 999,
+  requires_reason BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (tenant_id, role)
+);
+CREATE TABLE IF NOT EXISTS discount_logs (
+  id SERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  order_id INTEGER,
+  cashier_id INTEGER,
+  reason TEXT NOT NULL,
+  coupon_id INTEGER,
+  customer_name TEXT,
+  customer_phone TEXT,
+  discount_type TEXT NOT NULL,
+  discount_value NUMERIC(10,2) NOT NULL,
+  rejected BOOLEAN DEFAULT FALSE,
+  rejection_reason TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS discount_logs_tenant_idx ON discount_logs(tenant_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS invoice_settings (
+  id SERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  branch_id INTEGER,
+  logo_url TEXT,
+  restaurant_name TEXT,
+  paper_size TEXT NOT NULL DEFAULT '80mm',
+  invoice_type TEXT NOT NULL DEFAULT 'sales',
+  welcome_message TEXT,
+  show_tax BOOLEAN DEFAULT TRUE,
+  show_logo BOOLEAN DEFAULT TRUE,
+  footer_text TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (tenant_id, branch_id)
+);
 ALTER TABLE products  ADD COLUMN IF NOT EXISTS image_url TEXT;
 ALTER TABLE qr_tokens ADD COLUMN IF NOT EXISTS session_started_at TIMESTAMPTZ;
 ALTER TABLE qr_tokens ADD COLUMN IF NOT EXISTS session_expires_at TIMESTAMPTZ;
@@ -211,7 +255,30 @@ fi
 PGPASSWORD=foodoro123 psql -U foodoro -h localhost -d foodoro_db -c "
   UPDATE subscriptions SET plan='enterprise', status='active',
          current_period_end = GREATEST(current_period_end, NOW() + INTERVAL '365 days')
-   WHERE tenant_id=(SELECT id FROM tenants WHERE slug='foodpro-demo');" >/dev/null 2>&1 || true
+   WHERE tenant_id=(SELECT id FROM tenants WHERE slug='foodpro-demo');
+  UPDATE tenants SET demo_mode=TRUE WHERE slug='foodpro-demo';
+" >/dev/null 2>&1 || true
+
+# Seed default discount caps for 10 roles (idempotent)
+PGPASSWORD=foodoro123 psql -U foodoro -h localhost -d foodoro_db <<'SQL' >/dev/null 2>&1 || true
+INSERT INTO discount_settings (tenant_id, role, max_discount_percent, max_discount_amount, max_daily_uses, requires_reason)
+SELECT t.id, role_name, max_pct, max_amt, daily, TRUE
+FROM tenants t,
+(VALUES
+  ('owner', 100, NULL, 9999),
+  ('manager', 50, 500, 50),
+  ('cashier', 10, 50, 20),
+  ('waiter', 5, 20, 10),
+  ('accountant', 30, 200, 30),
+  ('kitchen', 0, 0, 0),
+  ('bar', 0, 0, 0),
+  ('inventory', 0, 0, 0),
+  ('viewer', 0, 0, 0),
+  ('super_admin', 100, NULL, 9999)
+) AS roles(role_name, max_pct, max_amt, daily)
+WHERE t.slug='foodpro-demo'
+ON CONFLICT (tenant_id, role) DO NOTHING;
+SQL
 
 echo "[bootstrap] DONE @ $(date -Is)"
 # Signal supervisor that bootstrap is complete — backend/frontend wait for this

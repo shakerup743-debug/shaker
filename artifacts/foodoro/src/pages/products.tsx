@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Plus, LayoutGrid, Search, ToggleLeft, ToggleRight, Pencil, Trash2, FlaskConical, X } from "lucide-react";
+import { Can } from "@/components/can";
 import {
   useListProducts,
   useListCategories,
@@ -372,14 +373,16 @@ export default function ProductsPage() {
           <h1 className="text-base font-semibold">{t("products.title")}</h1>
           <span className="text-xs text-muted-foreground">{products?.length ?? 0} {t("products.items")}</span>
         </div>
-        <button
-          data-testid="button-add-product"
-          onClick={() => setCreateOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors"
-        >
-          <Plus size={15} />
-          {t("products.addProduct")}
-        </button>
+        <Can perm="products.manage">
+          <button
+            data-testid="button-add-product"
+            onClick={() => setCreateOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors"
+          >
+            <Plus size={15} />
+            {t("products.addProduct")}
+          </button>
+        </Can>
       </div>
 
       <div className="flex items-center gap-3 px-6 py-3 border-b border-border">
@@ -457,15 +460,17 @@ export default function ProductsPage() {
                     </div>
                   )}
                   <div className="flex items-center gap-1">
-                    <button data-testid={`button-toggle-${product.id}`} onClick={() => handleToggle(product.id)} className="w-7 h-7 rounded-lg hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-                      {product.isActive ? <ToggleRight size={16} className="text-primary" /> : <ToggleLeft size={16} />}
-                    </button>
-                    <button data-testid={`button-edit-${product.id}`} onClick={() => setEditProduct(product)} className="w-7 h-7 rounded-lg hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-                      <Pencil size={13} />
-                    </button>
-                    <button data-testid={`button-delete-${product.id}`} onClick={() => setDeleteId(product.id)} className="w-7 h-7 rounded-lg hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors">
-                      <Trash2 size={13} />
-                    </button>
+                    <Can perm="products.manage">
+                      <button data-testid={`button-toggle-${product.id}`} onClick={() => handleToggle(product.id)} className="w-7 h-7 rounded-lg hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                        {product.isActive ? <ToggleRight size={16} className="text-primary" /> : <ToggleLeft size={16} />}
+                      </button>
+                      <button data-testid={`button-edit-${product.id}`} onClick={() => setEditProduct(product)} className="w-7 h-7 rounded-lg hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                        <Pencil size={13} />
+                      </button>
+                      <button data-testid={`button-delete-${product.id}`} onClick={() => setDeleteId(product.id)} className="w-7 h-7 rounded-lg hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors">
+                        <Trash2 size={13} />
+                      </button>
+                    </Can>
                   </div>
                 </div>
                 <p className="font-semibold text-sm text-foreground line-clamp-1 text-start">{product.name}</p>

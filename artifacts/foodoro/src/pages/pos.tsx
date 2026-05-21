@@ -104,6 +104,10 @@ export default function PosPage() {
         const { status, orderId } = data as { ticketId: number; status: string; orderId: number };
         void queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
         if (status === "ready") {
+          // Desktop browser notification + in-app toast.
+          void import("@/lib/notifications").then((m) => {
+            m.showOrderReadyNotification({ orderId, status }, isAr);
+          });
           toast({
             title: isAr ? "🔔 الطلب جاهز!" : "🔔 Order Ready!",
             description: isAr ? `الطلب رقم ${orderId} جاهز للاستلام` : `Order #${orderId} is ready for pickup`,

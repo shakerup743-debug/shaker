@@ -23,6 +23,7 @@ import { AiChatBot } from "@/components/ai-chat-bot";
 import { SubscriptionBanner } from "@/components/subscription-banner";
 import { SUPPORTED_LANGUAGES } from "@/i18n/languages";
 import { OfflineIndicator } from "@/components/offline-indicator";
+import { useNotificationsBootstrap } from "@/lib/notifications";
 
 const FOODPRO_TOKEN_KEY = "foodoro-token";
 
@@ -149,6 +150,7 @@ function LiveClock() {
 const CASHIER_ITEMS = [
   { path: "/",                    icon: ShoppingCart, labelKey: "nav.pos",                testId: "nav-pos" },
   { path: "/kitchen",             icon: ChefHat,      labelKey: "nav.kitchen",            testId: "nav-kitchen" },
+  { path: "/qr-orders",           icon: Receipt,      labelKey: "nav.qrOrders",           testId: "nav-qr-orders-rail" },
   { path: "/tables",              icon: Grid3X3,      labelKey: "nav.tables",             testId: "nav-tables" },
   { path: "/cashier/amendments",  icon: FileEdit,     labelKey: "nav.cashierAmendments",  testId: "nav-cashier-amendments" },
 ] as const;
@@ -171,6 +173,7 @@ const MANAGEMENT_GROUPS = [
     key: "sales",
     labelEn: "Sales & Finance", labelAr: "المبيعات والمالية",
     items: [
+      { path: "/qr-orders",           icon: Receipt,    labelKey: "nav.qrOrders",          testId: "nav-qr-orders" },
       { path: "/reports",             icon: BarChart3,  labelKey: "nav.reports",           testId: "nav-reports" },
       { path: "/reports/advanced",    icon: TrendingUp, labelKey: "nav.reportsAdvanced",   testId: "nav-reports-advanced" },
       { path: "/financials/overview", icon: DollarSign, labelKey: "nav.financialsOverview",testId: "nav-financials-overview" },
@@ -204,9 +207,11 @@ const MANAGEMENT_GROUPS = [
     key: "system",
     labelEn: "System", labelAr: "النظام",
     items: [
-      { path: "/billing",         icon: Receipt,   labelKey: "billing.nav",          testId: "nav-billing" },
-      { path: "/tenant/settings", icon: Building2, labelKey: "nav.tenantSettings",   testId: "nav-tenant-settings" },
-      { path: "/settings",        icon: Settings,  labelKey: "nav.settings",         testId: "nav-settings" },
+      { path: "/billing",            icon: Receipt,    labelKey: "billing.nav",          testId: "nav-billing" },
+      { path: "/settings/discounts", icon: Tag,        labelKey: "nav.discountSettings", testId: "nav-discount-settings" },
+      { path: "/settings/invoice",   icon: Receipt,    labelKey: "nav.invoiceSettings",  testId: "nav-invoice-settings" },
+      { path: "/tenant/settings",    icon: Building2,  labelKey: "nav.tenantSettings",   testId: "nav-tenant-settings" },
+      { path: "/settings",           icon: Settings,   labelKey: "nav.settings",         testId: "nav-settings" },
     ],
   },
 ] as const;
@@ -501,6 +506,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [quickSwitchOpen, setQuickSwitchOpen] = useState(false);
   const basePth = import.meta.env.BASE_URL.replace(/\/$/, "");
+  useNotificationsBootstrap();
 
   const { data: billing } = useQuery<BillingStatusMin>({
     queryKey: ["billing-status"],
