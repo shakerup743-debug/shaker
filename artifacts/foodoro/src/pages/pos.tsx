@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Layers,
   X, Tag, LayoutGrid, StickyNote, ChevronDown, ChevronUp, AlertTriangle, Printer,
-  Bell, ChefHat, Clock, FileEdit,
+  Bell, ChefHat, Clock, FileEdit, Image as ImageIcon,
 } from "lucide-react";
 import { AmendmentDialog, type AmendmentOrder } from "@/components/amendment-dialog";
 import { InvoiceModal, type InvoiceData } from "@/components/invoice-modal";
 import { DiscountDialog } from "@/components/discount-dialog";
+import { OrderAttachmentInput } from "@/components/order-attachment-input";
 import {
   useListCategories,
   useListProducts,
@@ -68,6 +69,8 @@ export default function PosPage() {
     discountValue: number;
   } | null>(null);
   const [discountOpen, setDiscountOpen] = useState(false);
+  /** Optional image attached to the order (uploaded before submit). */
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   /** Tenant-level master switch / max-cap, fetched once on mount. */
   const [discountCfg, setDiscountCfg] = useState<{ enabled: boolean; maxPercent: number }>({ enabled: true, maxPercent: 15 });
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -233,6 +236,7 @@ export default function PosPage() {
       ...(discountAudit && discount > 0
         ? { discountAudit }
         : {}),
+      ...(attachmentUrl ? { attachmentUrl } : {}),
       notes: generalNote || undefined,
       paymentMethod: method,
       amountPaid: paidAmount,
@@ -249,6 +253,7 @@ export default function PosPage() {
       setCart([]);
       setDiscountInput(0);
       setDiscountAudit(null);
+      setAttachmentUrl(null);
       setTableNumber("");
       setPaymentOpen(false);
       setNotes({ general: "", priority: "medium", isSpecial: false, itemNotes: {}, expandedItems: {} });
@@ -583,6 +588,18 @@ export default function PosPage() {
                                isAr ? "توصيل" : "Delivery"}
                               {order.tableNumber ? ` · ${isAr ? "طاولة" : "T"}${order.tableNumber}` : ""}
                             </span>
+                            {(order as { attachmentUrl?: string }).attachmentUrl && (
+                              <a
+                                href={(order as { attachmentUrl?: string }).attachmentUrl}
+                                target="_blank" rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded bg-primary/15 text-primary hover:bg-primary/30"
+                                title={isAr ? "صورة مرفقة" : "Attachment"}
+                                data-testid={`order-attach-${order.id}`}
+                              >
+                                <ImageIcon size={11} />
+                              </a>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full ${isNew && order.status === "pending" ? "bg-primary/25 text-primary font-semibold animate-pulse" : statusCfg.cls}`}>
@@ -770,6 +787,17 @@ export default function PosPage() {
                 </button>
               )}
             </button>
+          </div>
+        )}
+
+        {/* Order image attachment (optional) */}
+        {cart.length > 0 && (
+          <div className="px-3 py-2 border-t border-border">
+            <OrderAttachmentInput
+              value={attachmentUrl}
+              onChange={setAttachmentUrl}
+              testIdPrefix="pos-order-attach"
+            />
           </div>
         )}
 

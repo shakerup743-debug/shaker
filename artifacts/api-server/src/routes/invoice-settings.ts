@@ -19,6 +19,7 @@ router.get("/invoice-settings", async (req: Request, res: Response): Promise<voi
   const r = await db.execute(sql`
     SELECT * FROM invoice_settings
     WHERE tenant_id=${tenantId} AND (branch_id IS NOT DISTINCT FROM ${branchId})
+    ORDER BY updated_at DESC, id DESC
     LIMIT 1
   `);
   const row = r.rows[0] as Record<string, unknown> | undefined;
@@ -55,24 +56,33 @@ router.put(
       showTax?: boolean; showLogo?: boolean; footerText?: string;
     };
 
-    await db.execute(sql`
-      INSERT INTO invoice_settings
-        (tenant_id, branch_id, logo_url, restaurant_name, paper_size, invoice_type,
-         welcome_message, show_tax, show_logo, footer_text)
-      VALUES
-        (${tenantId}, ${branchId}, ${logoUrl ?? null}, ${restaurantName ?? null}, ${paperSize},
-         ${invoiceType}, ${welcomeMessage ?? null}, ${showTax}, ${showLogo}, ${footerText ?? null})
-      ON CONFLICT (tenant_id, branch_id) DO UPDATE SET
-        logo_url        = EXCLUDED.logo_url,
-        restaurant_name = EXCLUDED.restaurant_name,
-        paper_size      = EXCLUDED.paper_size,
-        invoice_type    = EXCLUDED.invoice_type,
-        welcome_message = EXCLUDED.welcome_message,
-        show_tax        = EXCLUDED.show_tax,
-        show_logo       = EXCLUDED.show_logo,
-        footer_text     = EXCLUDED.footer_text,
+    // Use UPDATE-then-INSERT so we don't accumulate duplicate rows when
+    // the (tenant_id, branch_id=NULL) uniqueness can't be enforced by a
+    // straightforward UNIQUE constraint (NULLs are distinct in PG).
+    const upd = await db.execute(sql`
+      UPDATE invoice_settings SET
+        logo_url        = ${logoUrl ?? null},
+        restaurant_name = ${restaurantName ?? null},
+        paper_size      = ${paperSize},
+        invoice_type    = ${invoiceType},
+        welcome_message = ${welcomeMessage ?? null},
+        show_tax        = ${showTax},
+        show_logo       = ${showLogo},
+        footer_text     = ${footerText ?? null},
         updated_at      = NOW()
+      WHERE tenant_id = ${tenantId}
+        AND COALESCE(branch_id, -1) = COALESCE(${branchId}::integer, -1)
     `);
+    if ((upd.rowCount ?? 0) === 0) {
+      await db.execute(sql`
+        INSERT INTO invoice_settings
+          (tenant_id, branch_id, logo_url, restaurant_name, paper_size, invoice_type,
+           welcome_message, show_tax, show_logo, footer_text)
+        VALUES
+          (${tenantId}, ${branchId}, ${logoUrl ?? null}, ${restaurantName ?? null}, ${paperSize},
+           ${invoiceType}, ${welcomeMessage ?? null}, ${showTax}, ${showLogo}, ${footerText ?? null})
+      `);
+    }
     await logAudit(req, { entityType: "invoice_settings", entityId: String(tenantId), action: "update" });
     res.json({ ok: true });
   },

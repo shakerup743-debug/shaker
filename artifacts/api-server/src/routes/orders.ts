@@ -174,6 +174,15 @@ router.post("/orders", async (req, res): Promise<void> => {
     })
     .returning();
 
+  // Optional attachment URL (an image uploaded BEFORE the order was created
+  // and pasted into the cart). We persist it via a separate UPDATE because
+  // it isn't part of the strict Zod schema for the order body.
+  const attachmentUrl = (req.body as { attachmentUrl?: string | null }).attachmentUrl;
+  if (attachmentUrl && typeof attachmentUrl === "string") {
+    await req.db!.execute(sql`UPDATE orders SET attachment_url=${attachmentUrl} WHERE id=${order.id} AND tenant_id=${tid}`);
+    order.attachmentUrl = attachmentUrl as unknown as never;
+  }
+
   await req.db!.insert(orderItemsTable).values(itemsToInsert.map((i) => ({ ...i, orderId: order.id })));
   await req.db!.insert(kitchenTicketsTable).values({ orderId: order.id, tenantId: tid, status: "new" });
 
@@ -331,6 +340,28 @@ router.post("/orders/:id/complete", async (req, res): Promise<void> => {
     if (err instanceof OrderAlreadyCompletedError) { res.status(409).json({ error: err.message }); return; }
     throw err;
   }
+});
+
+/* ── Attach an image to an existing order ─────────────────────────────────
+ * Cashier or QR customer can upload an image URL (already uploaded to
+ * /api/uploads) to attach to an order — e.g. proof of issue with a dish,
+ * photo of the receipt, photo of a custom request. The URL is persisted
+ * to orders.attachment_url and shown in the order list + reports.
+ */
+router.post("/orders/:id/attachment", async (req, res): Promise<void> => {
+  const tid = req.tenantId!;
+  const orderId = Number(req.params.id);
+  const { attachmentUrl } = req.body as { attachmentUrl?: string };
+  if (!attachmentUrl || typeof attachmentUrl !== "string") {
+    res.status(400).json({ error: "attachmentUrl required" }); return;
+  }
+  const result = await req.db!.execute(sql`
+    UPDATE orders SET attachment_url=${attachmentUrl}
+    WHERE id=${orderId} AND tenant_id=${tid}
+    RETURNING id, attachment_url
+  `);
+  if ((result.rowCount ?? 0) === 0) { res.status(404).json({ error: "order not found" }); return; }
+  res.json({ ok: true, attachmentUrl });
 });
 
 export default router;

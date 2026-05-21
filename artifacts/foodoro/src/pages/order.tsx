@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
+import { OrderAttachmentInput } from "@/components/order-attachment-input";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -67,6 +68,7 @@ async function submitGuestOrder(
   notes: string,
   customer: { name: string; phone: string },
   qrToken: string | null,
+  attachmentUrl: string | null,
 ) {
   const res = await fetch(`${BASE}/api/public/orders?tenantId=${tenantId}`, {
     method: "POST",
@@ -79,6 +81,7 @@ async function submitGuestOrder(
       customerName: customer.name.trim(),
       customerPhone: customer.phone.trim() || undefined,
       qrToken: qrToken ?? undefined,
+      attachmentUrl: attachmentUrl ?? undefined,
     }),
   });
   if (!res.ok) {
@@ -159,6 +162,7 @@ export default function OrderPage() {
   const [showCustomerStep, setShowCustomerStep] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
 
   const categories = Array.from(
     new Map(
@@ -209,7 +213,7 @@ export default function OrderPage() {
     try {
       const result = await submitGuestOrder(
         tenantId, tableNumber, cart, notes,
-        { name: customerName, phone: customerPhone }, token,
+        { name: customerName, phone: customerPhone }, token, attachmentUrl,
       );
       setSuccess({ orderNumber: result.orderNumber, total: result.total });
       setCart([]);
@@ -476,6 +480,14 @@ export default function OrderPage() {
                         className="w-full bg-[#0B0F19] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:border-[#E67E22] [direction:ltr] text-start"
                         data-testid="qr-customer-phone"
                       />
+                      <div className="pt-1">
+                        <OrderAttachmentInput
+                          value={attachmentUrl}
+                          onChange={setAttachmentUrl}
+                          publicMode
+                          testIdPrefix="qr-order-attach"
+                        />
+                      </div>
                     </div>
                   )}
                   <div className="flex justify-between text-sm text-gray-400">

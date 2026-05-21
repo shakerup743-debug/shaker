@@ -137,6 +137,7 @@ router.post("/public/orders", async (req, res): Promise<void> => {
   const customerName  = ((req.body as Record<string, unknown>).customerName  as string | undefined)?.trim() || null;
   const customerPhone = ((req.body as Record<string, unknown>).customerPhone as string | undefined)?.trim()?.replace(/[^\d+]/g, "") || null;
   const generalNote   = ((req.body as Record<string, unknown>).generalNote   as string | undefined)?.trim() || null;
+  const attachmentUrl = ((req.body as Record<string, unknown>).attachmentUrl as string | undefined)?.trim() || null;
 
   await withTenantDb(tenantId, async (tdb) => {
     const products = await tdb
@@ -180,6 +181,7 @@ router.post("/public/orders", async (req, res): Promise<void> => {
         tableNumber, notes: notes ?? null, completionToken,
         // QR-specific fields
         customerName, customerPhone, generalNote, source: "qr",
+        attachmentUrl,
       })
       .returning();
 
