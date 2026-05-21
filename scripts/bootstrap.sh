@@ -221,6 +221,12 @@ CREATE TABLE IF NOT EXISTS invoice_settings (
   UNIQUE (tenant_id, branch_id)
 );
 ALTER TABLE products  ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE orders    ADD COLUMN IF NOT EXISTS kitchen_ready_at TIMESTAMPTZ;
+ALTER TABLE orders    ADD COLUMN IF NOT EXISTS customer_name TEXT;
+ALTER TABLE orders    ADD COLUMN IF NOT EXISTS customer_phone TEXT;
+ALTER TABLE orders    ADD COLUMN IF NOT EXISTS general_note TEXT;
+ALTER TABLE orders    ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'pos';
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS item_note TEXT;
 ALTER TABLE qr_tokens ADD COLUMN IF NOT EXISTS session_started_at TIMESTAMPTZ;
 ALTER TABLE qr_tokens ADD COLUMN IF NOT EXISTS session_expires_at TIMESTAMPTZ;
 ALTER TABLE tenants   ADD COLUMN IF NOT EXISTS business_type TEXT;

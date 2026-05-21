@@ -24,7 +24,11 @@ const VALID_TYPES   = new Set(["percent", "amount"]);
 async function getDiscountSettings(req: Request, res: Response): Promise<void> {
   const tenantId = req.user!.tenantId!;
   const r = await db.execute(sql`
-    SELECT role, max_discount_percent, max_discount_amount, max_daily_uses, requires_reason
+    SELECT role,
+           max_discount_percent::float AS max_discount_percent,
+           max_discount_amount::float  AS max_discount_amount,
+           max_daily_uses,
+           requires_reason
     FROM discount_settings WHERE tenant_id=${tenantId} ORDER BY role
   `);
   res.json({ settings: r.rows });

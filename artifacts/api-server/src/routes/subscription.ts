@@ -126,6 +126,23 @@ router.get("/subscription", authenticate, async (req: Request, res: Response): P
   let sub = await ensureSub(tenantId);
   sub = await autoExpireTrial(sub);
 
+  // Demo-mode override: bypass all gating for the investor demo tenant.
+  // Read tenants.demo_mode and if true, force enterprise/active in the response.
+  const demoRow = await db.execute(
+    sql`SELECT demo_mode FROM tenants WHERE id=${tenantId} LIMIT 1`,
+  );
+  const demoMode = Boolean((demoRow.rows[0] as { demo_mode?: boolean } | undefined)?.demo_mode);
+  if (demoMode) {
+    sub = {
+      ...sub,
+      plan: "enterprise",
+      status: "active",
+      current_period_end: sub.current_period_end ?? new Date(Date.now() + 365 * 86400000),
+      cancel_at_period_end: false,
+      pending_downgrade_plan: null,
+    } as typeof sub;
+  }
+
   const planDef = PLANS[sub.plan];
   const now = new Date();
   const trial = sub.trial_ends_at ? new Date(sub.trial_ends_at) : null;

@@ -21,7 +21,24 @@ router.get("/invoice-settings", async (req: Request, res: Response): Promise<voi
     WHERE tenant_id=${tenantId} AND (branch_id IS NOT DISTINCT FROM ${branchId})
     LIMIT 1
   `);
-  res.json({ settings: r.rows[0] ?? null });
+  const row = r.rows[0] as Record<string, unknown> | undefined;
+  if (!row) { res.json({ settings: null }); return; }
+  // Mirror camelCase + snake_case for backwards compatibility with both
+  // the existing FE (snake_case in invoice-settings.tsx) and any new
+  // consumers expecting camelCase.
+  res.json({
+    settings: {
+      ...row,
+      logoUrl: row.logo_url,
+      restaurantName: row.restaurant_name,
+      paperSize: row.paper_size,
+      invoiceType: row.invoice_type,
+      welcomeMessage: row.welcome_message,
+      showTax: row.show_tax,
+      showLogo: row.show_logo,
+      footerText: row.footer_text,
+    },
+  });
 });
 
 router.put(

@@ -161,6 +161,32 @@ class TestDiscountSettings:
         for k in ("role", "max_discount_percent"):
             assert k in sample, f"missing {k} in {sample}"
 
+    def test_max_discount_percent_is_number_not_string(self, authed):
+        """Iteration 4 fix: NUMERIC must be cast to float in JSON, not returned as string."""
+        # Ensure a value is persisted first
+        payload = {
+            "settings": [{
+                "role": "cashier",
+                "max_discount_percent": 15,
+                "max_discount_amount": 50,
+                "max_daily_uses": 5,
+                "requires_reason": True,
+            }]
+        }
+        p = authed.put(f"{BASE_URL}/api/discount-settings", json=payload, timeout=15)
+        assert p.status_code == 200
+        g = authed.get(f"{BASE_URL}/api/discounts/settings", timeout=15)
+        assert g.status_code == 200
+        items = g.json().get("settings", [])
+        cashier = next((x for x in items if x.get("role") == "cashier"), None)
+        assert cashier is not None, items
+        mdp = cashier.get("max_discount_percent")
+        # Must be a number type now (int or float), NOT a string like "15.00"
+        assert isinstance(mdp, (int, float)), (
+            f"max_discount_percent must be a JSON number, got {type(mdp).__name__}={mdp!r}"
+        )
+        assert float(mdp) == 15.0
+
     def test_put_persists_cashier_15pct(self, authed):
         payload = {
             "settings": [{
@@ -222,6 +248,30 @@ class TestInvoiceSettings:
         assert paper == "A5", f"paperSize={paper} body={s}"
         assert rname == "FoodPro Demo", f"restaurantName={rname}"
         assert wmsg == "Welcome to FoodPro!", f"welcomeMessage={wmsg}"
+
+    def test_get_invoice_settings_returns_camelcase(self, authed):
+        """Iteration 4 fix: GET /api/invoice-settings must return camelCase keys."""
+        # Ensure something is persisted
+        payload = {
+            "logoUrl": "/api/uploads/products/demo-logo.png",
+            "restaurantName": "FoodPro Demo",
+            "paperSize": "A5",
+            "welcomeMessage": "Welcome to FoodPro!",
+            "footerText": "Thank you, come again.",
+            "showTax": True,
+            "showLogo": True,
+        }
+        p = authed.put(f"{BASE_URL}/api/invoice-settings", json=payload, timeout=15)
+        assert p.status_code == 200
+
+        g = authed.get(f"{BASE_URL}/api/invoice-settings", timeout=15)
+        assert g.status_code == 200
+        body = g.json()
+        s = body.get("settings") if isinstance(body.get("settings"), dict) else body
+        assert s, body
+        expected_camel = ["logoUrl", "paperSize", "restaurantName", "welcomeMessage", "footerText", "showTax", "showLogo"]
+        missing = [k for k in expected_camel if k not in s]
+        assert not missing, f"GET missing camelCase keys: {missing} present={list(s.keys())}"
 
     def test_qr_data_url(self, authed):
         r = authed.get(f"{BASE_URL}/api/invoice-settings/qr", timeout=15)

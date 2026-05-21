@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration-4 backend retest after main agent's 4 fixes. 36/36 tests PASS across both suites (test_foodpro_backend.py = 18/18, test_foodpro_iteration3.py = 18 pass + 1 skip). ALL FOUR REGRESSION FIXES VERIFIED: (1) GET /api/qr-orders now returns 200 with {orders:[]} — orders table columns kitchen_ready_at/customer_name/customer_phone/general_note/source and order_items.item_note are present, no more 500. (2) GET /api/subscription with demo JWT now correctly returns plan='enterprise' status='active' — tenants.demo_mode override is working end-to-end. (3) GET /api/invoice-settings now returns ALL expected camelCase fields (logoUrl, paperSize, restaurantName, welcomeMessage, footerText, showTax, showLogo) — verified by new strict test test_get_invoice_settings_returns_camelcase. (4) GET /api/discount-settings now returns max_discount_percent as a JSON number (float 15.0) NOT a string '15.00' — verified by new strict test test_max_discount_percent_is_number_not_string. The single SKIP is benign: master-password full_lifecycle skips because a prior run already configured an MP for the demo tenant; the wrong-password→401 path is independently asserted and passes.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_foodpro_iteration3.py",
+    "/app/backend/tests/test_foodpro_backend.py",
+    "/app/test_reports/pytest/iteration4_results.xml",
+    "/app/test_reports/pytest/iteration4_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "All 4 reported fixes verified end-to-end. No new regressions detected across auth, currencies, exchange-rates (≥100 SAR rows), products+image upload+PATCH+static-serve (PNG round-trip), orders create+complete, kitchen flow, qr-orders, discounts settings (GET+PUT, numeric type), invoice settings (GET camelCase + PUT + QR data-URL), master-password (status, verify-wrong→401, verify-correct→200 when lifecycle is fresh), coupons full CRUD, WS /api/ws upgrade through public ingress (101 Switching Protocols), sw.js, manifest.webmanifest.",
+    "demo_mode override in subscription.ts is the cleaner of the two fix options proposed in iteration_3 and avoids two-sources-of-truth drift. Good.",
+    "Minor non-blocking: master-password lifecycle test relies on DB state (skips when MP already set). Consider adding an admin-only DELETE/reset endpoint for /api/security/master-password to make the test idempotent across runs, OR adding a teardown fixture that resets the master_passwords row for the demo tenant. Not blocking.",
+    "Backend is stable and production-ready for the tested surface area."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_foodpro_iteration3.py",
+    "/app/test_reports/pytest/iteration4_results.xml",
+    "/app/test_reports/pytest/iteration4_regression.xml",
+    "/app/test_reports/iteration_4.json"
+  ],
+  "success_rate": {"backend": "100% (36/36 passed, 1 benign skip)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "demo@foodpro.com / Demo2026! — login OK, JWT issued, tenant=foodpro-demo (id=1).",
+  "seed_data_creation": "Created one TEST{ts} coupon (deleted in same test). Re-PATCHed product id=1/2 imageUrl to a freshly-uploaded 1x1 PNG via /api/uploads/image-base64. Persisted demo invoice_settings row {paperSize=A5, restaurantName='FoodPro Demo', welcomeMessage='Welcome to FoodPro!', footerText='Thank you, come again.'} for tenant 1. Persisted discount_settings.cashier max_discount_percent=15. No master-password mutation in this run (already configured).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All previously-reported critical and minor backend bugs are CLOSED. Re-run with: pytest /app/backend/tests/test_foodpro_iteration3.py /app/backend/tests/test_foodpro_backend.py -v. The MasterPassword.test_full_lifecycle SKIP is expected on warm DBs — the wrong-password→401 path is still covered by test_verify_wrong_password_returns_401_regardless. New strict tests added: test_get_invoice_settings_returns_camelcase and test_max_discount_percent_is_number_not_string — keep these as regression guards. Mocked APIs in scope: Paddle (sandbox/mock) — /api/subscription/checkout returns a mocked checkout URL when keys absent; not exercised in this run.",
+  "rca of the issue": "N/A — no issues found in this iteration. All 4 prior fixes verified."
+}
