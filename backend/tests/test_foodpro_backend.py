@@ -123,6 +123,7 @@ class TestCurrencies:
         assert r.status_code == 200, r.text[:300]
         data = r.json()
         rates = data if isinstance(data, list) else data.get("rates", [])
+        assert len(rates) >= 150, f"expected ≥150 USD rate rows, got {len(rates)}"
         codes = {row.get("target_currency") or row.get("quote") or row.get("code") or row.get("target") for row in rates}
         assert "SAR" in codes, f"SAR not in USD rates; sample={sorted(c for c in codes if c)[:30]}"
 
@@ -148,6 +149,7 @@ class TestProductsAndOrders:
         price = p.get("price") or p.get("unitPrice") or 10
         payload = {
             "items": [{"productId": pid, "quantity": 1, "price": price}],
+            "type": "dine_in",
             "orderType": "dine_in",
         }
         r = authed.post(f"{BASE_URL}/api/orders", json=payload, timeout=20)
@@ -155,7 +157,7 @@ class TestProductsAndOrders:
         body = r.json()
         oid = body.get("id") or body.get("orderId") or body.get("order", {}).get("id")
         assert oid, f"no order id returned: {body}"
-        rc = authed.post(f"{BASE_URL}/api/orders/{oid}/complete", json={}, timeout=20)
+        rc = authed.post(f"{BASE_URL}/api/orders/{oid}/complete", json={"paymentMethod": "cash"}, timeout=20)
         assert rc.status_code in (200, 204), rc.text[:300]
 
 
@@ -168,19 +170,15 @@ class TestMisc:
         assert "orders" in data or isinstance(data, list), data
 
     def test_discounts_settings(self, authed):
-        # The review request lists `/api/discounts/settings` but actual route is
-        # `/api/discount-settings`. Test both and report mismatch.
+        # After fix, both aliased paths should return 200.
         r_spec = authed.get(f"{BASE_URL}/api/discounts/settings", timeout=15)
         r_real = authed.get(f"{BASE_URL}/api/discount-settings", timeout=15)
-        # Real implementation must work
         assert r_real.status_code == 200, r_real.text[:200]
+        assert r_spec.status_code == 200, (
+            f"/api/discounts/settings still {r_spec.status_code}: {r_spec.text[:200]}"
+        )
+        assert isinstance(r_spec.json(), dict)
         assert isinstance(r_real.json(), dict)
-        # Spec'd path returns 404 → flag as inconsistency, but don't fail the suite
-        if r_spec.status_code != 200:
-            pytest.skip(
-                f"/api/discounts/settings → {r_spec.status_code}; "
-                f"actual route is /api/discount-settings (works, returns {r_real.json()})"
-            )
 
     def test_invoice_settings(self, authed):
         r = authed.get(f"{BASE_URL}/api/invoice-settings", timeout=15)
@@ -195,41 +193,43 @@ class TestMisc:
 
 # ---------------- WebSocket / Service Worker ----------------
 class TestRealtime:
-    def test_ws_upgrade(self, auth_token):
-        # WebSocket broker mounted at /ws — confirm via raw upgrade handshake.
-        # Try external URL first; if proxy strips upgrade, fall back to localhost.
+    def _ws_handshake(self, host, port, use_tls, path, auth_token):
         import socket, base64, os as _os
-        targets = [
-            (BASE_URL.replace("https://", "").replace("http://", "").split("/")[0],
-             443 if BASE_URL.startswith("https") else 80,
-             BASE_URL.startswith("https")),
-            ("localhost", 8001, False),
-        ]
-        last = None
-        for host, port, use_tls in targets:
-            try:
-                raw = socket.create_connection((host, port), timeout=8)
-                sock = raw
-                if use_tls:
-                    import ssl
-                    ctx = ssl.create_default_context()
-                    sock = ctx.wrap_socket(raw, server_hostname=host)
-                key = base64.b64encode(_os.urandom(16)).decode()
-                req = (
-                    f"GET /ws HTTP/1.1\r\nHost: {host}\r\nUpgrade: websocket\r\n"
-                    f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
-                    f"Sec-WebSocket-Version: 13\r\n"
-                    f"Authorization: Bearer {auth_token}\r\n\r\n"
-                )
-                sock.sendall(req.encode())
-                resp = sock.recv(512).decode(errors="ignore")
-                sock.close()
-                if "101" in resp.split("\r\n", 1)[0]:
-                    return  # success
-                last = f"{host}:{port} → {resp.splitlines()[0] if resp else 'empty'}"
-            except Exception as e:
-                last = f"{host}:{port} → {e}"
-        pytest.fail(f"WS /ws did not upgrade on any target. Last: {last}")
+        raw = socket.create_connection((host, port), timeout=8)
+        sock = raw
+        if use_tls:
+            import ssl
+            ctx = ssl.create_default_context()
+            sock = ctx.wrap_socket(raw, server_hostname=host)
+        key = base64.b64encode(_os.urandom(16)).decode()
+        req = (
+            f"GET {path} HTTP/1.1\r\nHost: {host}\r\nUpgrade: websocket\r\n"
+            f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
+            f"Sec-WebSocket-Version: 13\r\n"
+            f"Authorization: Bearer {auth_token}\r\n\r\n"
+        )
+        sock.sendall(req.encode())
+        resp = sock.recv(512).decode(errors="ignore")
+        sock.close()
+        first = resp.split("\r\n", 1)[0] if resp else "empty"
+        return ("101" in first), first
+
+    def test_ws_upgrade_api_public(self, auth_token):
+        # /api/ws MUST upgrade via the public ingress (review request).
+        host = BASE_URL.replace("https://", "").replace("http://", "").split("/")[0]
+        port = 443 if BASE_URL.startswith("https") else 80
+        ok, first = self._ws_handshake(host, port, BASE_URL.startswith("https"), "/api/ws", auth_token)
+        assert ok, f"/api/ws public upgrade failed: {first}"
+
+    def test_ws_upgrade_ws_alias_local(self, auth_token):
+        # /ws alias should still work on localhost.
+        ok, first = self._ws_handshake("localhost", 8001, False, "/ws", auth_token)
+        assert ok, f"/ws localhost upgrade failed: {first}"
+
+    def test_ws_upgrade_api_ws_local(self, auth_token):
+        # /api/ws should also upgrade locally.
+        ok, first = self._ws_handshake("localhost", 8001, False, "/api/ws", auth_token)
+        assert ok, f"/api/ws localhost upgrade failed: {first}"
 
     def test_service_worker_js(self, api_client):
         r = api_client.get(f"{BASE_URL}/sw.js", timeout=15)

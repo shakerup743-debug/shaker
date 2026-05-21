@@ -11,35 +11,44 @@ import { logger } from "../lib/logger.js";
 const router = Router();
 
 /** Update rates for the given base.
- *  Frankfurter has the cleanest data but doesn't support a few currencies
- *  (e.g. SAR). Fall back to exchangerate-api.com's free /v6 endpoint when
- *  Frankfurter says "not found". */
+ *  Frankfurter has the cleanest data but only covers ~30 currencies.
+ *  open.er-api.com covers 160+ including SAR/AED/KWD/etc. We merge both
+ *  so the table is the union of all supported currencies.
+ *
+ *  Strategy: fetch both providers in parallel, then upsert all rows
+ *  (Frankfurter values override open.er-api for shared currencies because
+ *  Frankfurter is regulator-sourced and more accurate). */
 async function refreshRates(base = "USD"): Promise<void> {
   try {
-    let rates: Record<string, number> | null = null;
-    try {
-      const r = await fetch(`https://api.frankfurter.dev/v1/latest?base=${base}`);
-      if (r.ok) {
-        const data = (await r.json()) as { rates?: Record<string, number> };
-        if (data.rates && Object.keys(data.rates).length > 0) rates = data.rates;
-      }
-    } catch { /* fallthrough */ }
+    const [erApi, frank] = await Promise.allSettled([
+      fetch(`https://open.er-api.com/v6/latest/${base}`).then(async (r) =>
+        r.ok ? ((await r.json()) as { rates?: Record<string, number>; result?: string }) : null,
+      ),
+      fetch(`https://api.frankfurter.dev/v1/latest?base=${base}`).then(async (r) =>
+        r.ok ? ((await r.json()) as { rates?: Record<string, number> }) : null,
+      ),
+    ]);
 
-    if (!rates) {
-      const r2 = await fetch(`https://open.er-api.com/v6/latest/${base}`);
-      if (r2.ok) {
-        const d2 = (await r2.json()) as { rates?: Record<string, number>; result?: string };
-        if (d2.result === "success" && d2.rates) rates = d2.rates;
+    const merged: Record<string, number> = {};
+
+    if (erApi.status === "fulfilled" && erApi.value?.result === "success" && erApi.value.rates) {
+      for (const [k, v] of Object.entries(erApi.value.rates)) {
+        if (typeof v === "number" && isFinite(v) && v > 0) merged[k] = v;
+      }
+    }
+    if (frank.status === "fulfilled" && frank.value?.rates) {
+      // Frankfurter takes precedence for the currencies it covers.
+      for (const [k, v] of Object.entries(frank.value.rates)) {
+        if (typeof v === "number" && isFinite(v) && v > 0) merged[k] = v;
       }
     }
 
-    if (!rates) {
-      logger.warn({ base }, "Both rate providers returned no data");
+    if (Object.keys(merged).length === 0) {
+      logger.warn({ base }, "Both rate providers returned no usable data");
       return;
     }
 
-    for (const [target, rate] of Object.entries(rates)) {
-      if (typeof rate !== "number" || !isFinite(rate)) continue;
+    for (const [target, rate] of Object.entries(merged)) {
       await db.execute(sql`
         INSERT INTO exchange_rates (base_currency, target_currency, rate, fetched_at)
         VALUES (${base}, ${target}, ${rate}, NOW())
@@ -54,7 +63,7 @@ async function refreshRates(base = "USD"): Promise<void> {
       ON CONFLICT (base_currency, target_currency)
       DO UPDATE SET rate = 1, fetched_at = NOW()
     `);
-    logger.info({ base, count: Object.keys(rates).length }, "Exchange rates refreshed");
+    logger.info({ base, count: Object.keys(merged).length }, "Exchange rates refreshed");
   } catch (err) {
     logger.warn({ err }, "Failed to refresh exchange rates");
   }

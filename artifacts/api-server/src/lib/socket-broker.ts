@@ -25,7 +25,21 @@ class SocketBroker {
   private clients = new Map<WebSocket, WsClient>();
 
   attach(server: Server): void {
-    this.wss = new WebSocketServer({ server, path: "/ws" });
+    // Mount under /api so the standard Kubernetes ingress (/api/* → backend)
+    // forwards the WebSocket upgrade request. We also keep a /ws alias so
+    // direct/localhost clients (and older builds) continue to work.
+    this.wss = new WebSocketServer({ noServer: true });
+
+    server.on("upgrade", (req, socket, head) => {
+      const url = new URL(req.url ?? "/", "http://localhost");
+      if (url.pathname !== "/ws" && url.pathname !== "/api/ws") {
+        socket.destroy();
+        return;
+      }
+      this.wss!.handleUpgrade(req, socket, head, (ws) => {
+        this.wss!.emit("connection", ws, req);
+      });
+    });
 
     this.wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       const url = new URL(req.url ?? "/", "http://localhost");
@@ -80,7 +94,7 @@ class SocketBroker {
       }));
     });
 
-    logger.info("WebSocket broker attached to server at /ws");
+    logger.info("WebSocket broker attached to server at /ws and /api/ws");
   }
 
   emit(event: WsEvent): void {

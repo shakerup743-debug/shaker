@@ -21,14 +21,17 @@ const VALID_REASONS = new Set(["vip", "friend", "coupon", "occasion", "other"]);
 const VALID_TYPES   = new Set(["percent", "amount"]);
 
 /* ── GET caps ──────────────────────────────────────────────────────────── */
-router.get("/discount-settings", async (req: Request, res: Response): Promise<void> => {
+async function getDiscountSettings(req: Request, res: Response): Promise<void> {
   const tenantId = req.user!.tenantId!;
   const r = await db.execute(sql`
     SELECT role, max_discount_percent, max_discount_amount, max_daily_uses, requires_reason
     FROM discount_settings WHERE tenant_id=${tenantId} ORDER BY role
   `);
   res.json({ settings: r.rows });
-});
+}
+router.get("/discount-settings", getDiscountSettings);
+// Alias matching the documented spec.
+router.get("/discounts/settings", getDiscountSettings);
 
 /* ── PUT caps ──────────────────────────────────────────────────────────── */
 router.put(

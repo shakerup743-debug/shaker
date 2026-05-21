@@ -59,7 +59,7 @@ export default function QrOrdersPage() {
   // WebSocket live updates
   useEffect(() => {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${proto}//${window.location.host}/ws`);
+    const ws = new WebSocket(`${proto}//${window.location.host}/api/ws`);
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data) as { type?: string };

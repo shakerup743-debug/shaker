@@ -1,0 +1,33 @@
+{
+  "summary": "Backend-only re-test of FoodPro POS after iteration-1 fixes. Ran 18 pytest cases against the public preview URL (and localhost for the local WS aliases). All 18 PASS. The 3 fixes from iteration 1 are verified: (a) GET /api/exchange-rates?base=USD now returns 166 rows and contains SAR/AED/KWD (Frankfurter + open.er-api.com merge is working); (b) GET /api/discounts/settings now returns 200 (alias added) and /api/discount-settings still works; (c) WebSocket upgrades succeed for /api/ws via the public ingress (101 Switching Protocols) AND for /ws + /api/ws on localhost. Seeded products (شاي كرك, قهوة عربية) made the order create→complete flow runnable end-to-end (after fixing the test payload to include the required `type` and `paymentMethod` fields per the Zod schemas). No regressions detected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_foodpro_backend.py",
+    "/app/test_reports/pytest/foodpro_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Order create schema requires `type` (dine_in|takeaway|delivery) — UI/clients must send this, not `orderType`. Consider accepting both for backwards-compat, or document the contract clearly.",
+    "Order /complete schema requires `paymentMethod` (cash|card|mixed). Same suggestion — accept default 'cash' if not provided, or surface this requirement in the OpenAPI/spec doc.",
+    "Two ingress-exposed WS paths (/api/ws and /ws-alias-on-localhost) is fine; document the canonical one for future clients (recommend /api/ws since that is what passes through the k8s ingress)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_foodpro_backend.py",
+    "/app/test_reports/pytest/foodpro_results.xml"
+  ],
+  "success_rate": {"backend": "100% (18/18 passed)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "demo@foodpro.com / Demo2026! (from /app/memory/test_credentials.md) — login returns JWT, tenant=foodpro-demo, plan=enterprise/active confirmed.",
+  "seed_data_creation": "Used seeded demo products created by main agent (شاي كرك, قهوة عربية). Test creates a dine_in order with 1 unit of the first product and completes it with paymentMethod=cash; no leftover state beyond a single completed order.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All previously reported backend issues are resolved. Test file at /app/backend/tests/test_foodpro_backend.py covers all listed endpoints plus 2 extra WS handshake tests (public /api/ws, local /ws alias, local /api/ws). Re-run with: pytest backend/tests/test_foodpro_backend.py -v --junitxml=/app/test_reports/pytest/foodpro_results.xml. NOTE for order tests: /api/orders requires `type` (not `orderType`) and /api/orders/{id}/complete requires `paymentMethod`. NOTE for WS: ingress now forwards both /ws and /api/ws upgrades; either works.",
+  "rca of the issue": "N/A — no remaining bugs. Iteration-1 root causes (fallback-only refreshRates merge, missing /discounts/settings alias, broker mounted at /ws unreachable via /api/* ingress) are all addressed and verified via live HTTP/upgrade probes."
+}

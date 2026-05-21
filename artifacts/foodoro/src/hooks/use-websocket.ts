@@ -54,7 +54,7 @@ export function useWebSocket({
       if (role) params.set("role", role);
 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const url = `${protocol}//${window.location.host}/ws?${params.toString()}`;
+      const url = `${protocol}//${window.location.host}/api/ws?${params.toString()}`;
 
       const ws = new WebSocket(url);
       wsRef.current = ws;
