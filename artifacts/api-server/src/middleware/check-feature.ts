@@ -149,6 +149,10 @@ export async function readOnlyGuard(req: Request, res: Response, next: NextFunct
   const tenantId = req.user?.tenantId ?? req.tenantId;
   if (!tenantId) { next(); return; }
 
+  // DEMO MODE bypass — investor demo, never locked into read-only.
+  const demoCheck = await db.execute(sql`SELECT demo_mode FROM tenants WHERE id=${tenantId}`);
+  if ((demoCheck.rows[0] as { demo_mode?: boolean } | undefined)?.demo_mode) { next(); return; }
+
   let sub = await loadSub(tenantId);
   if (!sub) { next(); return; }
 

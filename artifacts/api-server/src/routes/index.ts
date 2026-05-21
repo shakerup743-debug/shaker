@@ -36,6 +36,9 @@ import amendmentsRouter from "./amendments.js";
 import aiChatRouter from "./ai-chat.js";
 import openapiRouter from "./openapi.js";
 import uploadsRouter from "./uploads.js";
+import qrOrdersRouter from "./qr-orders.js";
+import discountsRouter from "./discounts.js";
+import invoiceSettingsRouter from "./invoice-settings.js";
 import { PLANS, TRIAL_DAYS, isUnlimited } from "@workspace/db";
 import { authenticate } from "../middleware/authenticate.js";
 import { auditMiddleware } from "../middleware/audit-auto.js";
@@ -119,5 +122,8 @@ router.use(masterPasswordRouter);
 router.use(amendmentsRouter);
 router.use(aiChatRouter);
 router.use(uploadsRouter);
+router.use(qrOrdersRouter);
+router.use(discountsRouter);
+router.use(invoiceSettingsRouter);
 
 export default router;

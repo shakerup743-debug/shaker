@@ -1,110 +1,87 @@
 # FOODPRO POS — PRD & Implementation Status
 
 ## Original Problem Statement
-نظام إدارة مطاعم متكامل **FOODPRO POS** متعدد المستأجرين مع POS, KDS, Inventory, Customers, QR Menus, Google Auth, AI Chatbot، ونظام اشتراكات Paddle SaaS كامل.
+نظام إدارة مطاعم متكامل **FOODPRO POS** متعدد المستأجرين مع POS, KDS, Inventory, Customers, QR Menus, Auth, AI Chatbot، نظام اشتراكات Paddle SaaS، رفع صور المنتجات، QR session timeout، وميزات SaaS متقدمة.
 
 ## Tech Stack
-- **Node.js** v20 + **pnpm** 9.15.5 (monorepo)
-- **PostgreSQL** 15 (foodoro_db) + Drizzle ORM + RLS
-- **Backend**: Express 5 TypeScript ESM (port 8001)
-- **Frontend**: React 19 + Vite 7 (production build)
-- **AI Sidecar**: Python FastAPI + emergentintegrations (Claude Haiku 4.5)
-- **Auth**: Custom JWT + Emergent Google OAuth
-- **Payments**: Paddle Billing v2 (HMAC-verified webhooks, mock fallback when keys missing)
+- Node 20 + pnpm 9.15.5 monorepo, Express 5 TS ESM (8001), React 19 + Vite 7 (3000), PostgreSQL 15 + Drizzle/RLS
+- AI sidecar: Python FastAPI + emergentintegrations (Claude Haiku 4.5)
+- Payments: Paddle Billing v2 (HMAC + mock fallback)
+- Persistence: `/app/pgdata` (survives container rebuilds) + supervisor bootstrap
 
-## What's been implemented
+## Recent Sessions
 
-### 2026-02-20 — Paddle SaaS Subscriptions + Product Images + QR Timeout
-- ✅ **PLANS** finalized to match spec exactly:
-  - Starter: $149 / 1 branch / 2 users / 6 features
-  - Growth: $349 / 3 branches / 10 users / 17 features (highlighted)
-  - Enterprise: $999 / unlimited / 22 features
-- ✅ Trial = 14 days, auto-created at signup with 1 branch + 3 users + no api/webhooks
-- ✅ New tables: `subscriptions`, `billing_events`, `invoices`, `app_notifications`, `leads`
-- ✅ `checkFeature(feature)` middleware enforces plan features per API call
-- ✅ `readOnlyGuard` blocks ALL writes from expired/canceled tenants (GETs always pass)
-- ✅ `inventory` route → Growth+ only
-- ✅ Per-plan branch & user limit enforcement
-- ✅ POST `/api/subscription/checkout` — creates Paddle transaction (or mock-activates when keys absent)
-- ✅ POST `/api/subscription/upgrade` — immediate plan change (active subs only)
-- ✅ POST `/api/subscription/downgrade` — scheduled for period end
-- ✅ POST `/api/subscription/cancel` + `/resume` — cancel at period end
-- ✅ POST `/api/paddle/webhook` — RAW body, HMAC-SHA256 signature verification, idempotent via `paddle_event_id` UNIQUE
-- ✅ Handled events: subscription.created/updated/canceled, transaction.completed/paid, payment_failed
-- ✅ GET `/api/subscription/invoices` — full invoice history
-- ✅ GET `/api/subscription/notifications` — in-app trial-warning + expiry banners
-- ✅ Frontend `/billing` page completely rewritten — current plan card, usage bars, 3 plan grid, invoices table, cancel/resume buttons
-- ✅ Sticky `<SubscriptionBanner />` in layout — auto-shows trial countdown (≤ 7 days) + expired warning + cancellation reminder
+### 2026-02-21 — Demo mode + QR orders + Discounts + Invoice settings + Master pwd
+- ✅ `tenants.demo_mode` flag → bypasses ALL feature gating + read-only checks (for investor showcase)
+- ✅ Order schema: `order_items.item_note`, `orders.general_note`, `orders.customer_name/phone`, `orders.kitchen_ready_at`, `orders.payment_method`, `orders.source` (pos | qr)
+- ✅ **QR Orders router** `/api/qr-orders` — list / customer-info / pay / XLSX export (ExcelJS)
+- ✅ **Discounts router** `/api/discounts/*` + `/api/orders/:id/discount` — mandatory reason (vip/friend/coupon/occasion/other), role-based caps, full `discount_logs` table
+- ✅ **Invoice settings router** `/api/invoice-settings` + `/api/invoice-settings/qr` (QRCode lib) — paper sizes 58/80mm/A5/A4, welcome message, footer, logo
+- ✅ Master password router already in place (`/api/security/master-password/*`) — verified existing implementation works
+- ✅ Per-item notes on QR menu (`order.tsx`) with explicit input under each cart item
+- ✅ Customer name/phone registration step on QR before order submission
+- ✅ Item notes flow through `order_items.item_note` and display in KDS card
 
-### Product images
-- ✅ `image_url` column already on products table
-- ✅ POST `/api/uploads/image` (multipart) + `/api/uploads/image-base64` — 4 MB cap, jpeg/png/webp/gif only
-- ✅ Static serving at `/uploads/products/*`
-- ✅ Product form has file picker (phone upload) + URL paste input
-- ✅ Product cards + POS tiles render `imageUrl` when present
+### 2026-02-20 — Paddle SaaS Subscriptions
+- ✅ Three plans (Starter $149 / Growth $349 / Enterprise $999) — exact spec match
+- ✅ 14-day trial auto-created on signup (1 branch / 3 users / no API/Webhooks)
+- ✅ `checkFeature(feature)` + `readOnlyGuard` middleware
+- ✅ Paddle webhook with HMAC-SHA256 + idempotent via `paddle_event_id` UNIQUE
+- ✅ Upgrade immediate, Downgrade at period end, Cancel/Resume
+- ✅ `/billing` page with current plan, usage bars, plan grid, invoices, cancel/resume
+- ✅ `<SubscriptionBanner />` global — trial countdown + expired warning + cancellation reminder
+- ✅ Product image upload (multipart 4 MB + base64 + URL paste) — visible in POS + products list
+- ✅ QR session 5-minute window — after expiry → 410 + must re-scan
 
-### QR Customer ordering session
-- ✅ New columns `qr_tokens.session_started_at` + `session_expires_at`
-- ✅ First scan opens a 5-minute window
-- ✅ After 5 minutes → 410 Gone + token deactivated; customer must re-scan
-- ✅ Order POST also validates session window
+### Earlier sessions
+- ✅ Restaurant-only signup (25 business types + validator)
+- ✅ AI Chat with Claude Haiku 4.5 via Emergent Universal Key (cute 3D orange-cloud avatar)
+- ✅ Custom JWT + Emergent Google Auth
+- ✅ FOODORO → FOODPRO rename
+- ✅ Tax-inclusive math fix
+- ✅ Marketing landing page (Hero + Features + Pricing + Lead form) — no direct contact channels per spec
 
-### Earlier sessions (kept)
-- ✅ Restaurant-only signup with 25 business types + custom-text validator
-- ✅ AI Chat with Claude Haiku 4.5 via Emergent Universal Key
-- ✅ Custom JWT + Emergent Google Auth (Clerk removed)
-- ✅ 3D orange-cloud "Foodie" AI avatar
-
-## Architecture
-```
-Browser → Vite preview (3000)
-        → k8s ingress
-        → Express (8001) ──▶ PostgreSQL 15
-        │   ├─ /api/subscription/* (auth)
-        │   ├─ /api/paddle/webhook (HMAC verified)
-        │   ├─ /api/uploads/* (auth)
-        │   └─ /uploads/products/* (static)
-        └─ Python AI Sidecar (9000) → Claude Haiku 4.5
-```
-
-## Plan Feature Gating Map
-| Feature           | Starter | Growth | Enterprise | Trial |
-|-------------------|:-:|:-:|:-:|:-:|
-| POS / Orders      | ✅ | ✅ | ✅ | ✅ |
-| Products / Cats   | ✅ | ✅ | ✅ | ✅ |
-| QR Menu           | ✅ | ✅ | ✅ | ✅ |
-| Basic Reports     | ✅ | ✅ | ✅ | ✅ |
-| KDS / Inventory   | ❌ | ✅ | ✅ | ✅ |
-| Loyalty / Coupons | ❌ | ✅ | ✅ | ✅ |
-| AI Chat / Insights| ❌ | ✅ | ✅ | ✅ |
-| RBAC              | ❌ | ✅ | ✅ | ✅ |
-| API Access        | ❌ | ❌ | ✅ | ❌ |
-| Webhooks          | ❌ | ❌ | ✅ | ❌ |
-| Audit Logs        | ❌ | ❌ | ✅ | ❌ |
+## Persistence & Auto-recovery
+- `/app/scripts/bootstrap.sh` — idempotent boot script (priority=1 supervisor program)
+  - Installs PostgreSQL 15 + pnpm if missing
+  - Creates DB, RLS roles, demo user (`demo@foodpro.com` / `Demo2026!`)
+  - Pushes Drizzle migrations + applies RLS
+  - Adds extra raw-SQL tables (subscriptions / billing_events / invoices / app_notifications / leads / discount_settings / discount_logs / invoice_settings)
+- `/app/pgdata` stores Postgres data → survives container resets
+- backend & frontend wait for `/tmp/foodpro-bootstrap.done` before starting
 
 ## Demo Credentials
 - URL: https://d40ff25a-6729-4cca-ab4c-05bad06cdee1.preview.emergentagent.com
 - Email: `demo@foodpro.com`
 - Password: `Demo2026!`
-- Plan: Enterprise / Active (1-year period)
+- Plan: Enterprise / Active  +  `demo_mode = TRUE` (full reports unlocked for investor demo)
 
-## Required ENV (for production Paddle)
-```
-PADDLE_API_KEY=pdl_xxx               # Paddle Billing API key
-PADDLE_WEBHOOK_SECRET=pdl_ntfset_xxx # Webhook secret for HMAC verification
-PADDLE_ENV=production                # or sandbox (default)
-PADDLE_PRICE_STARTER=pri_xxx         # 149 USD/yr
-PADDLE_PRICE_GROWTH=pri_xxx          # 349 USD/yr
-PADDLE_PRICE_ENTERPRISE=pri_xxx      # 999 USD/yr
-```
-Until set, system runs in **mock-checkout mode** — clicking Upgrade instantly
-activates the plan + writes a DEMO invoice. Real Paddle integration only
-requires populating those vars.
+## Status: Currently Implemented vs Pending
 
-## Next Action Items
-- **P0**: Owner provides real Paddle production keys to flip from mock → live billing
-- **P1**: Apply `checkFeature("kds")` middleware on KDS routes
-- **P1**: Apply `checkFeature("webhooks")` middleware on webhook management routes
-- **P2**: Subscription email notifications (Resend or SMTP)
-- **P2**: Redis cache for refresh tokens
-- **P3**: PWA / Offline Service Worker
+### Done (this big spec)
+| # | Feature | Status |
+|---|---------|--------|
+| 1 | QR orders + customer info + pay + XLSX | ✅ backend ready; UI integrates customer step |
+| 2 | Per-item notes in POS, KDS, QR | ✅ schema + flow + KDS render |
+| 3 | Product images upload + display | ✅ from previous session |
+| 4 | Discounts with mandatory reason + caps + logs | ✅ |
+| 5 | Invoice customization + QR generation | ✅ backend; UI page deferred |
+| 7 | Master password protection | ✅ existing implementation |
+| 10 | Reports demo_mode bypass | ✅ |
+
+### Deferred (P1-P2 — too large for one session)
+| # | Feature | Why deferred |
+|---|---------|--------------|
+| 6 | Offline-first PWA (Service Worker + IndexedDB sync) | 2-3 days work; needs Workbox + Dexie + conflict resolution |
+| 8 | Full RBAC overhaul (10 roles + per-permission gating) | partial RBAC already in place; expanding to all 10 = 1 day |
+| 9 | WebSocket real-time sync (Socket.io) | needs Redis adapter for prod + event wiring on every mutation |
+| 11 | 25-language i18n bundles | infrastructure exists (react-i18next); content for 23 new languages requires translation pipeline |
+| 12 | Multi-currency with Frankfurter API + cron | 4-5 hours work; needs scheduler + per-tenant base currency |
+
+## Next Action Items (priority order)
+1. **P0** — UI pages for `/settings/discounts` + `/settings/invoice` + `/cashier/qr-orders`
+2. **P0** — Paddle production keys to flip from mock → live billing
+3. **P1** — Socket.io basic events: order:created / order:status_updated (1 day)
+4. **P1** — Currency conversion in reports (4 hours)
+5. **P2** — Offline-first PWA (Workbox + Dexie)
+6. **P2** — Expand to 25 languages

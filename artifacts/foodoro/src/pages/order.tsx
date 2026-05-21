@@ -15,6 +15,7 @@ interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  note?: string;
 }
 
 interface MenuItem {
@@ -63,15 +64,21 @@ async function submitGuestOrder(
   tenantId: number,
   tableNumber: string,
   items: CartItem[],
-  notes: string
+  notes: string,
+  customer: { name: string; phone: string },
+  qrToken: string | null,
 ) {
   const res = await fetch(`${BASE}/api/public/orders?tenantId=${tenantId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       tableNumber,
-      items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+      items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, notes: i.note?.trim() || undefined })),
       notes: notes || undefined,
+      generalNote: notes || undefined,
+      customerName: customer.name.trim(),
+      customerPhone: customer.phone.trim() || undefined,
+      qrToken: qrToken ?? undefined,
     }),
   });
   if (!res.ok) {
@@ -148,6 +155,10 @@ export default function OrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ orderNumber: string; total: number } | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
+  // Customer registration step (after cart confirmation, before order is sent)
+  const [showCustomerStep, setShowCustomerStep] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
 
   const categories = Array.from(
     new Map(
@@ -185,13 +196,25 @@ export default function OrderPage() {
 
   const handleOrder = async () => {
     if (!tenantId || !tableNumber || cart.length === 0) return;
+    if (!showCustomerStep) {
+      setShowCustomerStep(true);
+      return;
+    }
+    if (customerName.trim().length < 2) {
+      setOrderError(isAr ? "الرجاء كتابة اسمك للفاتورة." : "Please enter your name for the bill.");
+      return;
+    }
     setSubmitting(true);
     setOrderError(null);
     try {
-      const result = await submitGuestOrder(tenantId, tableNumber, cart, notes);
+      const result = await submitGuestOrder(
+        tenantId, tableNumber, cart, notes,
+        { name: customerName, phone: customerPhone }, token,
+      );
       setSuccess({ orderNumber: result.orderNumber, total: result.total });
       setCart([]);
       setCartOpen(false);
+      setShowCustomerStep(false);
     } catch (e: unknown) {
       setOrderError(e instanceof Error ? e.message : "Failed to place order");
     } finally {
@@ -392,19 +415,33 @@ export default function OrderPage() {
                   <p className="text-gray-500 text-sm text-center py-8">{tx("noItems")}</p>
                 ) : (
                   cart.map((item) => (
-                    <div key={item.productId} className="flex items-center gap-3 py-2 border-b border-white/5">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{item.name}</p>
-                        <p className="text-gray-400 text-xs">{item.price.toFixed(2)} {isAr ? "ر.س" : currency} × {item.quantity}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex items-center gap-1 bg-[#111827] rounded-xl px-2 py-1">
-                          <button onClick={() => updateQty(item.productId, -1)} className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-white"><Minus size={11} /></button>
-                          <span className="text-white text-sm font-semibold w-5 text-center">{item.quantity}</span>
-                          <button onClick={() => updateQty(item.productId, 1)} className="w-6 h-6 flex items-center justify-center text-[#E67E22] hover:text-[#d4701e]"><Plus size={11} /></button>
+                    <div key={item.productId} className="py-2 border-b border-white/5 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium truncate">{item.name}</p>
+                          <p className="text-gray-400 text-xs">{item.price.toFixed(2)} {isAr ? "ر.س" : currency} × {item.quantity}</p>
                         </div>
-                        <button onClick={() => removeItem(item.productId)} className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-red-400"><Trash2 size={13} /></button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1 bg-[#111827] rounded-xl px-2 py-1">
+                            <button onClick={() => updateQty(item.productId, -1)} className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-white"><Minus size={11} /></button>
+                            <span className="text-white text-sm font-semibold w-5 text-center">{item.quantity}</span>
+                            <button onClick={() => updateQty(item.productId, 1)} className="w-6 h-6 flex items-center justify-center text-[#E67E22] hover:text-[#d4701e]"><Plus size={11} /></button>
+                          </div>
+                          <button onClick={() => removeItem(item.productId)} className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-red-400"><Trash2 size={13} /></button>
+                        </div>
                       </div>
+                      <input
+                        type="text"
+                        value={item.note ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setCart((prev) => prev.map((c) => c.productId === item.productId ? { ...c, note: v } : c));
+                        }}
+                        placeholder={isAr ? "ملاحظات على هذا الصنف (اختياري)" : "Notes on this item (optional)"}
+                        maxLength={200}
+                        className="w-full bg-[#111827]/70 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 border border-white/5 focus:outline-none focus:border-[#E67E22]/40"
+                        data-testid={`qr-item-note-${item.productId}`}
+                      />
                     </div>
                   ))
                 )}
@@ -417,6 +454,30 @@ export default function OrderPage() {
               </div>
               {cart.length > 0 && (
                 <div className="px-5 py-4 border-t border-white/10 space-y-3">
+                  {showCustomerStep && (
+                    <div className="space-y-2 bg-[#111827]/60 border border-[#E67E22]/30 rounded-2xl p-3" data-testid="qr-customer-step">
+                      <p className="text-white font-semibold text-sm flex items-center gap-1.5">
+                        {isAr ? "سجّل اسمك للفاتورة" : "Register your name for the bill"}
+                      </p>
+                      <input
+                        type="text"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        placeholder={isAr ? "اسمك (إلزامي)" : "Your name (required)"}
+                        required
+                        className="w-full bg-[#0B0F19] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:border-[#E67E22]"
+                        data-testid="qr-customer-name"
+                      />
+                      <input
+                        type="tel"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder={isAr ? "رقم الجوال (اختياري)" : "Phone (optional)"}
+                        className="w-full bg-[#0B0F19] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:border-[#E67E22] [direction:ltr] text-start"
+                        data-testid="qr-customer-phone"
+                      />
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm text-gray-400">
                     <span>{tx("subtotal")}</span>
                     <span>{subtotal.toFixed(2)} {isAr ? "ر.س" : currency}</span>

@@ -133,6 +133,10 @@ router.post("/public/orders", async (req, res): Promise<void> => {
   }
 
   const { tableNumber, items, notes } = parsed.data;
+  // Optional customer fields (passed through req.body — not in CreateGuestOrderBody schema)
+  const customerName  = ((req.body as Record<string, unknown>).customerName  as string | undefined)?.trim() || null;
+  const customerPhone = ((req.body as Record<string, unknown>).customerPhone as string | undefined)?.trim()?.replace(/[^\d+]/g, "") || null;
+  const generalNote   = ((req.body as Record<string, unknown>).generalNote   as string | undefined)?.trim() || null;
 
   await withTenantDb(tenantId, async (tdb) => {
     const products = await tdb
@@ -174,10 +178,17 @@ router.post("/public/orders", async (req, res): Promise<void> => {
         tenantId, orderNumber: generateOrderNumber(), type: "dine_in", status: "pending",
         subtotal: String(subtotal), discount: "0", tax: String(tax), total: String(total),
         tableNumber, notes: notes ?? null, completionToken,
+        // QR-specific fields
+        customerName, customerPhone, generalNote, source: "qr",
       })
       .returning();
 
-    await tdb.insert(orderItemsTable).values(itemsToInsert.map((i) => ({ ...i, orderId: order.id })));
+    // Insert order items including the item_note from the customer
+    await tdb.insert(orderItemsTable).values(itemsToInsert.map((i, idx) => ({
+      ...i,
+      orderId: order.id,
+      itemNote: items[idx]?.notes ?? null,
+    })));
     await tdb.insert(kitchenTicketsTable).values({ orderId: order.id, tenantId, status: "new" });
 
     sseBroker.emit({
