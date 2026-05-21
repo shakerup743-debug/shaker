@@ -1,98 +1,80 @@
 # FOODPRO POS — PRD & Implementation Status
 
 ## Original Problem Statement
-نظام إدارة مطاعم متكامل **FOODPRO POS** متعدد المستأجرين مع POS, KDS, Inventory, Customers, QR Menus, Auth, AI Chatbot، نظام اشتراكات Paddle SaaS، رفع صور المنتجات، QR session timeout، وميزات SaaS متقدمة. The user demanded a 12-feature mega-spec be delivered (QR orders, item notes, image fixes, discounts/coupons, invoice customization, offline-first, master password, RBAC, real-time sync, demo mode, 25 languages, multi-currency).
+نظام إدارة مطاعم متكامل **FOODPRO POS** متعدد المستأجرين مع POS, KDS, Inventory, Customers, QR Menus, Auth, AI Chatbot، نظام اشتراكات Paddle SaaS، رفع صور المنتجات، QR session timeout، وميزات SaaS متقدمة. The user demanded a 12-feature mega-spec be delivered + later demanded all Pro/Enterprise features unlocked for an investor demo.
 
 ## Tech Stack
 - Node 20 + pnpm 9.15.5 monorepo, Express 5 TS ESM (8001), React 19 + Vite 7 (3000), PostgreSQL 15 + Drizzle/RLS
 - AI sidecar: Python FastAPI + emergentintegrations (Claude Haiku 4.5)
-- Payments: Paddle Billing v2 (HMAC + mock fallback)
+- Payments: Paddle Billing v2 (HMAC + sandbox/mock when keys absent)
 - Persistence: `/app/pgdata` (survives container rebuilds) + supervisor bootstrap
 - Realtime: WebSocket (`ws`) attached to HTTP server at **`/ws`** AND **`/api/ws`** (so it traverses the K8s ingress)
 - Offline / PWA: vite-plugin-pwa + Workbox + Dexie.js (IndexedDB) for catalog cache + replay queue
-- i18n: react-i18next with **25 languages** registered (en + ar + 23 stub locales)
-
-## Recent Sessions
-
-### 2026-02-21 (continued) — Realtime + Multi-currency + PWA + i18n + RBAC
-- ✅ **Real-time WebSocket** wired across orders/kitchen mutations (alongside SSE). `socketBroker.emit` fires on:
-  `order:created`, `order:updated`, `order:cancelled`, `order:completed`, `order:ready`,
-  `ticket:updated`, `product:available/unavailable`, `inventory:low`, `stats:updated`.
-  WS server now uses `noServer` upgrade handler accepting both `/ws` and `/api/ws` (the latter for ingress).
-- ✅ **Multi-currency** with live rates. `/api/exchange-rates` route fetches from `api.frankfurter.dev` + `open.er-api.com`
-  **merged** (union, not fallback) so all 160+ currencies are covered including SAR/AED/KWD/etc. Auto-refresh every 60 min.
-  Frontend `CurrencyProvider` merges live rates into the static `CURRENCIES` list and re-renders all prices via `format()`.
-- ✅ **PWA + Offline-First**. `vite-plugin-pwa` generates `sw.js` with Workbox caching:
-  - StaleWhileRevalidate for `/api/products`, `/api/categories`
-  - CacheFirst for `/api/uploads/*` (images, 30 days)
-  - CacheFirst for Google Fonts
-  - Navigation fallback to `/index.html` (excluding `/api/*`)
-  Dexie IndexedDB layer (`/app/artifacts/foodoro/src/lib/offline-db.ts`) caches products and queues mutations
-  (`order:create`, `order:complete`, `product:update`). `useOnlineStatus` hook auto-flushes the queue when connectivity returns.
-  Floating `<OfflineIndicator />` shows pending count.
-- ✅ **25-language i18n**. `SUPPORTED_LANGUAGES` matrix in `src/i18n/languages.ts` covers EN, AR, ES, FR, DE, ZH, JA, HI, PT, RU, IT, KO, TR, NL, PL, SV, ID, TH, VI, EL, HE, FA, UR, BN, SW.
-  RTL languages (AR, HE, FA, UR) flip `<html dir>` automatically. Language picker dropdown in the layout (with flag + native + English name).
-  Stub locales currently inherit English copy; ready for a translation pipeline drop-in.
-- ✅ **RBAC**. 10-role permission matrix:
-  super_admin / owner / manager / cashier / waiter / kitchen / bar / accountant / inventory / viewer.
-  Frontend `<Can perm="…" />` wrapper + `hasPermission()` helper. Backend `requirePermission()` middleware mirrors the same matrix.
-- ✅ **Discount route alias** — `/api/discounts/settings` now exists as an alias of `/api/discount-settings`.
-- ✅ **Product image fallback** — POS/Products pages now have `onError` handlers that swap broken images for the product-initial badge.
-- ✅ **Bootstrap.sh** updated to provision the `exchange_rates` table and refresh-on-boot.
-- ✅ Demo products seeded (شاي كرك, قهوة عربية).
-
-### Earlier (this session)
-- ✅ `tenants.demo_mode` flag — bypasses ALL feature gating + read-only checks for investor showcase
-- ✅ Order schema extensions: `order_items.item_note`, `orders.general_note`, `orders.customer_name/phone`, `orders.kitchen_ready_at`, `orders.payment_method`, `orders.source`
-- ✅ QR Orders router `/api/qr-orders` — list / customer-info / pay / XLSX export (ExcelJS)
-- ✅ Discounts router `/api/discounts/*` + `/api/orders/:id/discount` — mandatory reason, role-based caps, full `discount_logs` audit table
-- ✅ Invoice settings `/api/invoice-settings` + `/api/invoice-settings/qr` — paper sizes 58/80mm/A5/A4, welcome message, footer, logo
-- ✅ Master password router `/api/security/master-password/*`
-- ✅ Per-item notes on QR menu, customer name/phone capture step
-
-### 2026-02-20 — Paddle SaaS Subscriptions
-- ✅ 3 plans (Starter $149 / Growth $349 / Enterprise $999), 14-day trial, feature gating, HMAC webhooks (idempotent)
-- ✅ `/billing` page with usage bars, plan grid, invoices, cancel/resume + `<SubscriptionBanner />`
-- ✅ Product image upload (multipart 4 MB + base64 + URL paste) and QR 5-minute session window
-
-### Earlier
-- ✅ Restaurant-only signup (25 business types), AI Chat (Claude Haiku 4.5 via Emergent Universal Key), Custom JWT + Emergent Google Auth, FOODORO→FOODPRO rename, tax-inclusive math, marketing landing page
-
-## Persistence & Auto-recovery
-- `/app/scripts/bootstrap.sh` — idempotent boot script (priority=1 supervisor program)
-- `/app/pgdata` stores Postgres data → survives container resets
-- backend & frontend wait for `/tmp/foodpro-bootstrap.done` before starting
+- i18n: react-i18next with **25 languages** registered (en + ar + 23 stub locales; user requested translation be deferred)
 
 ## Demo Credentials
 - URL: https://d40ff25a-6729-4cca-ab4c-05bad06cdee1.preview.emergentagent.com
 - Email: `demo@foodpro.com`  ·  Password: `Demo2026!`
-- Plan: Enterprise / Active  +  `demo_mode = TRUE`
+- Plan: **Enterprise / Active** + `tenants.demo_mode = TRUE` (overrides all gating — ALL features unlocked for the investor demo)
 
-## Status: 12-Feature Mega-Spec Completion
-| # | Feature                                | Status |
-|---|----------------------------------------|--------|
-| 1 | QR orders + customer info + pay + XLSX | ✅ Done (backend + UI) |
-| 2 | Per-item notes (POS, KDS, QR)          | ✅ Done |
-| 3 | Product images + safe fallback         | ✅ Done |
-| 4 | Discounts with mandatory reason + caps | ✅ Done + alias route |
-| 5 | Invoice customization + QR generation  | ✅ Backend ready; UI page deferred |
-| 6 | **Offline-First PWA**                   | ✅ Workbox SW + Dexie queue + indicator |
-| 7 | Master password protection             | ✅ Done |
-| 8 | **RBAC** (10 roles + permission matrix) | ✅ Backend middleware + frontend `<Can />` |
-| 9 | **WebSocket real-time sync**            | ✅ Wired across orders/kitchen, /api/ws ingress |
-| 10| Reports demo_mode bypass               | ✅ Done |
-| 11| **25 languages**                        | ✅ Scaffold + picker (stubs need translation) |
-| 12| **Multi-currency**                      | ✅ Live rates (Frankfurter + open.er-api union) |
+## Sessions
+
+### 2026-02-21 (latest) — Investor-Demo Sprint
+User's investor meeting upcoming. Issues fixed:
+- ✅ **Product image upload + display** verified end-to-end (DB → API → static serve → UI). `onError` fallback added so broken URLs degrade gracefully to the product-initial badge.
+- ✅ **QR Orders icon visible in left rail** (`/qr-orders` route + sidebar entry with Receipt icon). Page already existed but was orphaned.
+- ✅ **Discount Settings UI page** `/settings/discounts` — per-role caps (% + amount + daily uses + require-reason switch) for the 10 RBAC roles + recent log feed + link to Coupons CRUD.
+- ✅ **Invoice Customization UI page** `/settings/invoice` — logo upload (multipart), paper size selector (58/80/A5/A4), welcome message, footer text, tax/logo toggles, auto-generated QR linking to public menu, **LIVE preview** that re-renders on every change.
+- ✅ **Master Password** — verified backend uses bcrypt rounds=12, 8 backup codes generated. Frontend UI in `/security` tab.
+- ✅ **Web Push notifications** — `Notification` API integration in `/lib/notifications.ts` fires desktop alerts when kitchen marks an order ready. Falls back to DOM toast when permission denied.
+- ✅ **RBAC** — `<Can perm="…" />` wrapper applied on product destructive buttons (add/edit/delete/toggle). Same matrix on backend via `requirePermission()`.
+- ✅ **`demo_mode` override** — `GET /api/subscription` reads `tenants.demo_mode` and forces enterprise/active regardless of subscriptions table. All feature gating bypassed.
+- ✅ **Missing columns** added to `orders` (`kitchen_ready_at`, `customer_name`, `customer_phone`, `general_note`, `source`) and `order_items.item_note` — these were referenced by QR-orders router and previously caused 500s.
+- ✅ **Discount/Invoice tables seeded** with default caps for 10 roles. Bootstrap.sh updated so this survives container restarts.
+
+### Previously
+- ✅ Multi-currency (Frankfurter + open.er-api.com merged → 166 currencies, SAR base supported)
+- ✅ Real-time WebSocket on every order/kitchen mutation
+- ✅ Offline-First PWA (Workbox + Dexie)
+- ✅ 25-language scaffold + Language Picker
+- ✅ Paddle SaaS subscriptions (3 plans, 14-day trial, HMAC webhook)
+- ✅ QR orders / per-item notes / discounts backend / invoice settings backend / master password backend
+- ✅ Restaurant signup (25 business types), AI Chat (Claude Haiku 4.5)
 
 ## Testing
-- iteration_2.json: **100% backend pass (18/18)** — all 3 issues from iteration_1 fixed and verified.
-- Pytest file: `/app/backend/tests/test_foodpro_backend.py`
+- **iteration_4.json: 100% backend pass — 36/36 tests passing.**
+- Test file: `/app/backend/tests/test_foodpro_backend.py` + `/app/backend/tests/test_foodpro_iteration3.py`
 
-## Next Action Items (prioritised)
-1. **P0** — Translate the 23 stub locales (drop-in via a TMS or LLM batch). Keys & structure already in place.
-2. **P0** — UI pages for `/settings/discounts` + `/settings/invoice` (backend ready).
-3. **P0** — Paddle production keys to flip from mock → live billing.
-4. **P1** — Wire `<Can />` across all destructive buttons (delete product/category, refund, void order, etc.).
-5. **P1** — Service Worker push notifications (Web Push API) for "Order Ready" alerts.
-6. **P2** — Cloudflare R2 / S3 image upload for CDN-served product images.
-7. **P2** — Visual product-images regression test on the seeded products (smoke test only).
+## 12-Feature Mega-Spec — Final Status
+| # | Feature                                | Status |
+|---|----------------------------------------|--------|
+| 1 | QR orders + customer info + pay + XLSX | ✅ FULL (backend + UI + sidebar) |
+| 2 | Per-item notes (POS, KDS, QR)          | ✅ FULL |
+| 3 | Product images + safe fallback         | ✅ FULL — visually verified |
+| 4 | Discounts with mandatory reason + caps | ✅ FULL — backend + UI page |
+| 5 | Invoice customization + QR generation  | ✅ FULL — backend + UI with live preview |
+| 6 | Offline-First PWA                       | ✅ Workbox SW + Dexie queue + indicator |
+| 7 | Master password protection             | ✅ FULL (bcrypt 12 + 8 backup codes) |
+| 8 | RBAC (10 roles + permission matrix)    | ✅ Backend middleware + frontend `<Can />` |
+| 9 | WebSocket real-time sync                | ✅ Wired on /api/ws ingress |
+| 10| Reports demo_mode bypass               | ✅ Hard override in /api/subscription |
+| 11| 25 languages                            | ✅ Scaffold (translation deferred per user) |
+| 12| Multi-currency                          | ✅ Live rates (166 currencies including SAR) |
+
+## Persistence & Auto-recovery
+- `/app/scripts/bootstrap.sh` — idempotent boot script (priority=1 supervisor program)
+  - Creates ALL tables including new ones: `exchange_rates`, `discount_settings`, `discount_logs`, `invoice_settings`, `master_passwords`
+  - Adds missing columns: orders.kitchen_ready_at/customer_name/customer_phone/general_note/source, order_items.item_note, products.image_url
+  - Seeds 10 default discount caps for demo tenant
+  - Sets demo tenant to `demo_mode=TRUE` + enterprise/active subscription
+- `/app/pgdata` stores Postgres data → survives container resets
+
+## Next Action Items
+1. **P0** Paddle production keys (currently sandbox/mock) — required only when moving past investor demo into real billing.
+2. **P1** Translate 23 stub locales (deferred by user request).
+3. **P1** Wire `<Can />` across remaining destructive buttons (categories, inventory, suppliers, customers, staff).
+4. **P2** Web Push via VAPID for cross-device "order ready" notifications (currently same-tab only).
+5. **P2** Cloudflare R2 / S3 image upload for CDN-served product images.
+
+## Mocked
+- **Paddle billing** — placeholder keys only. Sandbox mode returns mocked checkout URLs and the webhook handler accepts unsigned events. Will flip to live when real keys are supplied.
