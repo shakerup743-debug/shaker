@@ -58,7 +58,7 @@ router.post(
       await ensureDir();
       const name = crypto.randomBytes(16).toString("hex") + extFromMime(req.file.mimetype);
       await fs.writeFile(path.join(UPLOAD_DIR, name), req.file.buffer);
-      res.json({ ok: true, url: `/uploads/products/${name}` });
+      res.json({ ok: true, url: `/api/uploads/products/${name}` });
     } catch {
       res.status(500).json({ error: "فشل رفع الصورة" });
     }
@@ -85,7 +85,7 @@ router.post(
       await ensureDir();
       const name = crypto.randomBytes(16).toString("hex") + extFromMime(mime);
       await fs.writeFile(path.join(UPLOAD_DIR, name), buffer);
-      res.json({ ok: true, url: `/uploads/products/${name}` });
+      res.json({ ok: true, url: `/api/uploads/products/${name}` });
     } catch {
       res.status(500).json({ error: "فشل حفظ الصورة" });
     }

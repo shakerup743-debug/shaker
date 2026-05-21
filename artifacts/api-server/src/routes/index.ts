@@ -39,6 +39,7 @@ import uploadsRouter from "./uploads.js";
 import qrOrdersRouter from "./qr-orders.js";
 import discountsRouter from "./discounts.js";
 import invoiceSettingsRouter from "./invoice-settings.js";
+import exchangeRatesRouter from "./exchange-rates.js";
 import { PLANS, TRIAL_DAYS, isUnlimited } from "@workspace/db";
 import { authenticate } from "../middleware/authenticate.js";
 import { auditMiddleware } from "../middleware/audit-auto.js";
@@ -125,5 +126,6 @@ router.use(uploadsRouter);
 router.use(qrOrdersRouter);
 router.use(discountsRouter);
 router.use(invoiceSettingsRouter);
+router.use(exchangeRatesRouter);
 
 export default router;

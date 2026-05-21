@@ -14,10 +14,15 @@ import { sql } from "drizzle-orm";
 import { authenticate } from "../middleware/authenticate.js";
 import { authorize } from "../middleware/authorize.js";
 import { logAudit } from "../lib/audit.js";
+import { socketBroker } from "../lib/socket-broker.js";
 
 const router = Router();
 
 router.use(authenticate);
+
+function emit(tenantId: number, type: string, payload: unknown): void {
+  socketBroker.emit({ type, payload, tenantId, timestamp: new Date().toISOString() });
+}
 
 /* ── LIST ─────────────────────────────────────────────────────────────── */
 router.get("/qr-orders", async (req: Request, res: Response): Promise<void> => {
@@ -77,6 +82,7 @@ router.post("/qr-orders/:id/customer-info", async (req: Request, res: Response):
     action: "qr_customer_info_set",
     metadata: { name: cleanName, phone: cleanPhone },
   });
+  emit(tenantId, "qr_order_updated", { orderId: id, customerName: cleanName });
   res.json({ ok: true });
 });
 
@@ -101,6 +107,7 @@ router.post("/qr-orders/:id/pay", async (req: Request, res: Response): Promise<v
     action: "qr_paid",
     metadata: { method: payment_method },
   });
+  emit(tenantId, "order:paid", { orderId: id, method: payment_method });
   res.json({ ok: true, paymentMethod: payment_method });
 });
 

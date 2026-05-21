@@ -88,7 +88,12 @@ function ProductForm({
         <div className="flex items-start gap-3">
           {imageUrl ? (
             <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-border bg-muted">
-              <img src={imageUrl} alt="product" className="w-full h-full object-cover" />
+              <img
+                src={imageUrl}
+                alt="product"
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
               <button type="button"
                 onClick={() => setImageUrl(null)}
                 className="absolute top-0.5 end-0.5 w-5 h-5 rounded-full bg-black/60 text-white text-xs flex items-center justify-center"
@@ -432,7 +437,19 @@ export default function ProductsPage() {
                 <div className="flex items-start justify-between mb-3">
                   {product.imageUrl ? (
                     <div className="w-9 h-9 rounded-xl overflow-hidden bg-muted border border-border">
-                      <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
+                      <img
+                        src={product.imageUrl} alt={product.name}
+                        className="w-full h-full object-cover" loading="lazy"
+                        onError={(e) => {
+                          const el = e.currentTarget as HTMLImageElement;
+                          el.style.display = 'none';
+                          el.parentElement?.classList.add('bg-primary/20');
+                          const fb = document.createElement('span');
+                          fb.className = 'text-primary font-bold w-full h-full flex items-center justify-center';
+                          fb.textContent = product.name.charAt(0);
+                          el.parentElement?.appendChild(fb);
+                        }}
+                      />
                     </div>
                   ) : (
                     <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -493,6 +510,13 @@ export default function ProductsPage() {
           <div className="flex gap-2 mt-2">
             <button data-testid="button-cancel-delete" onClick={() => setDeleteId(null)} className="flex-1 h-10 rounded-xl bg-secondary text-foreground text-sm font-medium">{t("products.delete.cancel")}</button>
             <button data-testid="button-confirm-delete-product" onClick={handleDelete} disabled={deleteProduct.isPending} className="flex-1 h-10 rounded-xl bg-destructive text-white text-sm font-semibold">{t("products.delete.confirm")}</button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+stid="button-confirm-delete-product" onClick={handleDelete} disabled={deleteProduct.isPending} className="flex-1 h-10 rounded-xl bg-destructive text-white text-sm font-semibold">{t("products.delete.confirm")}</button>
           </div>
         </DialogContent>
       </Dialog>

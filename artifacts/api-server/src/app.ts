@@ -68,8 +68,9 @@ app.post(
   },
 );
 
-// Serve uploaded product images statically
-app.use("/uploads", express.static("/app/uploads", { maxAge: "30d", fallthrough: true }));
+// Serve uploaded product images statically — MUST be under /api so the
+// k8s ingress routes /uploads/* through to the backend.
+app.use("/api/uploads", express.static("/app/uploads", { maxAge: "30d", fallthrough: true }));
 
 app.use(
   cors({
