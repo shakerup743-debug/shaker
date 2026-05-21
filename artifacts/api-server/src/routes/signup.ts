@@ -104,9 +104,10 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
         businessType === "other"
           ? businessTypeCustom!
           : businessTypeLabel(businessType, undefined, "ar"),
-      subscriptionPlan: "starter",
-      subscriptionStatus: "trial",
-      subscriptionExpiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day trial
+      subscriptionPlan: "enterprise",
+      subscriptionStatus: "active",
+      subscriptionExpiresAt: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000), // 10 years
+      demoMode: true, // demo policy: every new tenant gets full enterprise + bypass
       isActive: true,
     })
     .returning();

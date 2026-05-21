@@ -62,6 +62,13 @@ async function getSub(tenantId: number): Promise<SubRow | null> {
 }
 
 async function ensureSub(tenantId: number): Promise<SubRow> {
+  // Demo policy: every tenant is provisioned with full enterprise/active for 10 years.
+  // The plan-gating middleware also reads tenants.demo_mode as a hard override.
+  await db.execute(sql`
+    INSERT INTO subscriptions (tenant_id, plan, status, current_period_start, current_period_end)
+    VALUES (${tenantId}, 'enterprise', 'active', NOW(), NOW() + INTERVAL '10 years')
+    ON CONFLICT (tenant_id) DO NOTHING
+  `);
   const existing = await getSub(tenantId);
   if (existing) return existing;
   await db.execute(sql`

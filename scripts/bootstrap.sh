@@ -257,13 +257,15 @@ ON CONFLICT (tenant_id) DO NOTHING;
 SQL
 fi
 
-# Always make sure demo is on enterprise active (safety net)
-PGPASSWORD=foodoro123 psql -U foodoro -h localhost -d foodoro_db -c "
-  UPDATE subscriptions SET plan='enterprise', status='active',
-         current_period_end = GREATEST(current_period_end, NOW() + INTERVAL '365 days')
-   WHERE tenant_id=(SELECT id FROM tenants WHERE slug='foodpro-demo');
-  UPDATE tenants SET demo_mode=TRUE WHERE slug='foodpro-demo';
-" >/dev/null 2>&1 || true
+# Open Enterprise + demo_mode for ALL tenants (current and future).
+# Investor-demo policy: every account starts on full enterprise + bypass plan gating.
+PGPASSWORD=foodoro123 psql -U foodoro -h localhost -d foodoro_db <<'SQL' >/dev/null 2>&1 || true
+UPDATE tenants SET subscription_plan='enterprise', subscription_status='active', demo_mode=TRUE;
+INSERT INTO subscriptions (tenant_id, plan, status, current_period_start, current_period_end)
+SELECT id, 'enterprise', 'active', NOW(), NOW() + INTERVAL '10 years' FROM tenants
+ON CONFLICT (tenant_id) DO UPDATE SET plan='enterprise', status='active',
+  current_period_end=NOW() + INTERVAL '10 years', cancel_at_period_end=FALSE, pending_downgrade_plan=NULL;
+SQL
 
 # Seed default discount caps for 10 roles (idempotent)
 PGPASSWORD=foodoro123 psql -U foodoro -h localhost -d foodoro_db <<'SQL' >/dev/null 2>&1 || true
