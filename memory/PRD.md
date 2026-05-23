@@ -69,6 +69,32 @@ User's investor meeting upcoming. Issues fixed:
   - Sets demo tenant to `demo_mode=TRUE` + enterprise/active subscription
 - `/app/pgdata` stores Postgres data → survives container resets
 
+### 2026-02-23 — QR Fraud Protection + WhatsApp OTP
+- ✅ **NEW FEATURE — Full QR Order Fraud Protection (7-layer)**:
+  - DB: 5 new tables — `qr_scans`, `qr_order_security`, `whatsapp_otps`, `fraud_attempts`, `security_blacklist`
+  - 7 risk factors: blacklist hit (+100 critical), device fraud history (+35), unusual hour (+10), QR repetition (+25), device-token farming (+25), order anomalies (high-value +15, item count +15, missing name +25), behaviour patterns (same name from many IPs +25, unpaid pileup +15)
+  - Thresholds: **≥40** → WhatsApp OTP required, **≥60** → cashier manual approval, **≥80** → auto-block + 24h auto-blacklist of phone + device
+  - Server-side device fingerprint (SHA-256 of UA + lang + tz + screen + client hints)
+  - **Saudi phone validation** (05XXXXXXXX or +9665XXXXXXXX, normalized to +966 form)
+  - **Customer name + phone now MANDATORY** on all QR orders (HTTP 400 with `IDENTITY_REQUIRED`/`PHONE_INVALID`)
+  - **WhatsApp OTP** send/verify with single-use + 5 attempts + 10-min expiry. Provider stubbed (logs to backend stdout) — ready to wire Twilio/Meta when credentials are provided
+  - Auto-blacklist on critical risk + on cashier rejection (7 days)
+  - Admin **Fraud Monitoring page** at `/security/fraud` — stats, pending approvals, recent attempts, blacklist management
+  - Cashier approve/reject endpoints with status guards (`pending_approval` only) + 404 on no-match
+  - Kitchen ticket auto-deleted when order is FRAUD_BLOCKED
+- ✅ **45/46 backend tests pass** (22/22 fraud + 23/24 regression). One regression false-positive (testing agent's local issue, manually re-verified working)
+
+## Next Action Items
+1. **P0** Wire real WhatsApp provider (Twilio recommended) — the integration is one method swap in `/app/artifacts/api-server/src/lib/qr-security.ts::sendWhatsAppOtp`. Needs `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`.
+2. **P0** Tax-model harmonisation: `/api/orders` inclusive 15/115 vs `/api/public/orders` exclusive 15% — pick one.
+3. **P1** Wire option-group inventory deduction (Family Size = different SKU).
+4. **P1** Score evaluation BEFORE order INSERT (currently scored after insert + cleanup on block).
+5. **P1** QR Menu Metrics dashboard (languages/currencies of customers).
+6. **P1** Cloudflare R2 / S3 for product images.
+7. **P2** Paddle production keys (currently sandbox/mock).
+8. **P2** Translate 23 stub locales.
+9. **P2** Web Push via VAPID.
+
 ### 2026-02-23 — Auth Fix + Product Variants/Options (full + delta pricing)
 - ✅ **CRITICAL auth fix**: brute-force lockout was IP-only → blocked all users on shared NAT (cause of "can't login after logout" bug). Switched to **per (email+ip) primary lock at 6 fails** + IP-only DoS guard at 50. Successful login clears prior failures.
 - ✅ **NEW FEATURE — Product Variants/Options with dual pricing modes**:

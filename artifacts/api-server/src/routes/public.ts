@@ -300,6 +300,7 @@ router.post("/public/orders", async (req, res): Promise<void> => {
             [tenantId, type, value, "auto: critical fraud score", expires],
           );
         }
+        await tdb.delete(kitchenTicketsTable).where(eq(kitchenTicketsTable.orderId, order.id));
         await tdb.update(ordersTable).set({ status: "cancelled" }).where(eq(ordersTable.id, order.id));
         res.status(403).json({
           error: "محاولة طلب مريبة - تم رفض الطلب", code: "FRAUD_BLOCKED",
@@ -705,12 +706,14 @@ adminRouter.post("/admin/fraud/orders/:id/approve", async (req, res): Promise<vo
   const t = req.tenantId!;
   const userId = (req as Request & { user?: { sub?: number } }).user?.sub ?? null;
   const id = parseInt(String(req.params.id), 10);
-  await pool.query(
+  const r = await pool.query(
     `UPDATE qr_order_security
      SET status = 'accepted', cashier_approval = true, cashier_approved_by = $1, cashier_approved_at = NOW()
-     WHERE id = $2 AND tenant_id = $3`,
+     WHERE id = $2 AND tenant_id = $3 AND status = 'pending_approval'
+     RETURNING id`,
     [userId, id, t],
   );
+  if (!r.rowCount) { res.status(404).json({ error: "Order not found or not pending approval" }); return; }
   res.json({ ok: true });
 });
 
@@ -719,17 +722,23 @@ adminRouter.post("/admin/fraud/orders/:id/reject", async (req, res): Promise<voi
   const userId = (req as Request & { user?: { sub?: number } }).user?.sub ?? null;
   const id = parseInt(String(req.params.id), 10);
   const reason = ((req.body as { reason?: string })?.reason ?? "rejected by cashier").slice(0, 200);
-  const sec = await pool.query(`SELECT customer_phone, device_fingerprint FROM qr_order_security WHERE id = $1 AND tenant_id = $2`, [id, t]);
-  if (sec.rowCount) {
-    // Auto-blacklist phone + device for 7 days
-    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    for (const [type, value] of [["phone", sec.rows[0].customer_phone], ["device_fingerprint", sec.rows[0].device_fingerprint]] as const) {
-      await pool.query(
-        `INSERT INTO security_blacklist (tenant_id, blacklist_type, value, reason, blocked_by, expires_at)
-         VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (tenant_id, blacklist_type, value) DO NOTHING`,
-        [t, type, value, reason, userId, expires],
-      );
-    }
+  const sec = await pool.query(
+    `SELECT customer_phone, device_fingerprint, status FROM qr_order_security WHERE id = $1 AND tenant_id = $2`,
+    [id, t],
+  );
+  if (!sec.rowCount) { res.status(404).json({ error: "Order not found" }); return; }
+  if (sec.rows[0].status !== "pending_approval") {
+    res.status(409).json({ error: `Cannot reject — status is ${sec.rows[0].status}` });
+    return;
+  }
+  // Auto-blacklist phone + device for 7 days
+  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  for (const [type, value] of [["phone", sec.rows[0].customer_phone], ["device_fingerprint", sec.rows[0].device_fingerprint]] as const) {
+    await pool.query(
+      `INSERT INTO security_blacklist (tenant_id, blacklist_type, value, reason, blocked_by, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (tenant_id, blacklist_type, value) DO NOTHING`,
+      [t, type, value, reason, userId, expires],
+    );
   }
   await pool.query(
     `UPDATE qr_order_security
