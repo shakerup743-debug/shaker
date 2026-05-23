@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { createHash } from "crypto";
 import bcrypt from "bcryptjs";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { usersTable, userSessionsTable, securityEventsTable } from "@workspace/db";
-import { eq, and, gte, count, or } from "drizzle-orm";
+import { eq, and, gte, count, or, sql } from "drizzle-orm";
 import { signToken } from "../lib/jwt.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { logAudit } from "../lib/audit.js";
@@ -557,6 +557,192 @@ router.post("/auth/refresh", authenticate, async (req, res): Promise<void> => {
       role: user.role,
     },
   });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  PIN-FIRST LOGIN  (Role + Name + 6-digit PIN)
+//  ┌── Tenant context for these public endpoints comes from the URL `tenantId`
+//  │   query param OR the subdomain (resolveTenant style). Here we accept it
+//  │   as a body param since the user is not yet authenticated.
+//  ├── POST /api/auth/roster        — list active staff grouped by role
+//  └── POST /api/auth/pin-login     — { tenantId, userId, pin } -> JWT
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Public: list workers grouped by role. No emails leaked. Used by the
+// shift-attendant kiosk to pick "who am I" before entering the PIN.
+router.post("/auth/roster", async (req, res): Promise<void> => {
+  const { tenantId } = (req.body ?? {}) as { tenantId?: number };
+  if (!tenantId || typeof tenantId !== "number") {
+    res.status(400).json({ error: "tenantId required" });
+    return;
+  }
+  const rows = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      role: usersTable.role,
+      shiftStartsAt: usersTable.shiftStartsAt,
+      shiftEndsAt:   usersTable.shiftEndsAt,
+      pinDisabledAt: usersTable.pinDisabledAt,
+      hasPin: sql<boolean>`${usersTable.pin} IS NOT NULL`,
+    })
+    .from(usersTable)
+    .where(and(eq(usersTable.tenantId, tenantId), eq(usersTable.isActive, true)));
+
+  const now = Date.now();
+  const byRole: Record<string, Array<{ id: number; name: string; available: boolean; reason?: string }>> = {};
+  for (const u of rows) {
+    if (!u.hasPin) continue; // no PIN set → cannot log in via PIN
+    let available = true;
+    let reason: string | undefined;
+    if (u.pinDisabledAt) { available = false; reason = "pin_disabled"; }
+    else if (u.shiftStartsAt && new Date(u.shiftStartsAt).getTime() > now) {
+      available = false; reason = "shift_not_started";
+    } else if (u.shiftEndsAt && new Date(u.shiftEndsAt).getTime() < now) {
+      available = false; reason = "shift_ended";
+    }
+    if (!byRole[u.role]) byRole[u.role] = [];
+    byRole[u.role].push({ id: u.id, name: u.name, available, reason });
+  }
+  res.json(byRole);
+});
+
+router.post("/auth/pin-login", async (req, res): Promise<void> => {
+  const { tenantId, userId, pin } = (req.body ?? {}) as { tenantId?: number; userId?: number; pin?: string };
+  const ip = req.ip ?? req.socket?.remoteAddress ?? null;
+  const ua = getUa(req);
+  if (!tenantId || !userId || !pin) {
+    res.status(400).json({ error: "tenantId, userId, pin required" });
+    return;
+  }
+  if (!/^\d{4,8}$/.test(pin)) {
+    res.status(400).json({ error: "PIN must be 4-8 digits" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(and(eq(usersTable.id, userId), eq(usersTable.tenantId, tenantId), eq(usersTable.isActive, true)));
+
+  const failAndLog = async (reason: string, status: number, msg: string) => {
+    void recordSecurityEvent({
+      tenantId, type: "login_failed", ip, userId: user?.id ?? null, userName: user?.name ?? `userId:${userId}`,
+      severity: "low", metadata: { reason, channel: "pin" },
+    });
+    res.status(status).json({ error: msg });
+  };
+
+  if (!user || !user.pin) { await failAndLog("user_not_found_or_no_pin", 401, "بيانات الدخول غير صحيحة"); return; }
+  if (user.pinDisabledAt)  { await failAndLog("pin_disabled", 403, "تم تعطيل PIN الخاص بك. تواصل مع المدير."); return; }
+
+  const now = Date.now();
+  if (user.shiftStartsAt && new Date(user.shiftStartsAt).getTime() > now) {
+    await failAndLog("shift_not_started", 403, "وقت دوامك لم يبدأ بعد"); return;
+  }
+  if (user.shiftEndsAt && new Date(user.shiftEndsAt).getTime() < now) {
+    await failAndLog("shift_ended", 403, "انتهى وقت دوامك"); return;
+  }
+
+  const valid = await bcrypt.compare(pin, user.pin);
+  if (!valid) { await failAndLog("wrong_pin", 401, "PIN غير صحيح"); return; }
+
+  if (!user.tenantId) {
+    await failAndLog("no_tenant", 401, "الحساب غير مرتبط بفرع"); return;
+  }
+
+  // Success path — issue normal JWT identical to /auth/login output
+  const sessionId = await recordSession({
+    tenantId: user.tenantId, userId: user.id, userName: user.name,
+    userRole: user.role, ip, ua, isSuccess: true, mfaVerified: false,
+  });
+  await db.update(usersTable).set({ lastLoginAt: new Date() }).where(eq(usersTable.id, user.id));
+  void recordSecurityEvent({
+    tenantId: user.tenantId, type: "login_success", ip, userId: user.id, userName: user.name,
+    severity: "low", metadata: { channel: "pin", role: user.role },
+  });
+
+  const token = await signToken({
+    sub: String(user.id), email: user.email, name: user.name,
+    role: user.role, tenantId: user.tenantId, sessionId,
+  });
+  res.json({
+    token,
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  MASTER-PASSWORD  SESSION TOKENS  (15-min TTL each, guards Admin/Tools)
+//  POST /api/master-password/session/start  { masterPassword } -> { token, expiresAt }
+//  POST /api/master-password/session/check  Header: X-Master-Session: <token>
+//  POST /api/master-password/session/end    Header: X-Master-Session: <token>
+//  All actions write to `security_events`.
+// ─────────────────────────────────────────────────────────────────────────────
+import crypto from "crypto";
+
+const MASTER_SESSION_TTL_MS = 15 * 60 * 1000;
+
+router.post("/master-password/session/start", authenticate, async (req, res): Promise<void> => {
+  if (!req.user) { res.status(401).json({ error: "auth required" }); return; }
+  const tid = req.user.tenantId!;
+  const uid = parseInt(req.user.sub, 10);
+  const { masterPassword } = (req.body ?? {}) as { masterPassword?: string };
+  if (!masterPassword) { res.status(400).json({ error: "masterPassword required" }); return; }
+
+  // Verify against the existing master_passwords table.
+  const r = await db.execute(sql`SELECT password_hash FROM master_passwords WHERE tenant_id = ${tid} LIMIT 1`);
+  const row = r.rows[0] as { password_hash: string } | undefined;
+  const ok = !!row && (await bcrypt.compare(masterPassword, row.password_hash));
+
+  void recordSecurityEvent({
+    tenantId: tid, type: ok ? "master_pw_unlock" : "master_pw_failed",
+    ip: req.ip ?? null, userId: uid, userName: req.user.name,
+    severity: ok ? "low" : "high",
+    metadata: { route: "session_start" },
+  });
+
+  if (!ok) { res.status(401).json({ error: "كلمة المرور الرئيسية خاطئة" }); return; }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expires = new Date(Date.now() + MASTER_SESSION_TTL_MS);
+  await pool.query(
+    `INSERT INTO master_pw_sessions (tenant_id, user_id, token, expires_at, ip_address, user_agent)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [tid, uid, token, expires, req.ip ?? null, getUa(req)],
+  );
+  res.json({ token, expiresAt: expires.toISOString() });
+});
+
+router.post("/master-password/session/check", authenticate, async (req, res): Promise<void> => {
+  if (!req.user) { res.status(401).json({ error: "auth required" }); return; }
+  const token = req.headers["x-master-session"] as string | undefined;
+  if (!token) { res.status(401).json({ error: "no master session", code: "MASTER_REQUIRED" }); return; }
+  const r = await pool.query(
+    `SELECT expires_at FROM master_pw_sessions
+     WHERE token = $1 AND user_id = $2 AND tenant_id = $3 AND NOT revoked
+     LIMIT 1`,
+    [token, parseInt(req.user.sub, 10), req.user.tenantId],
+  );
+  if (!r.rowCount) { res.status(401).json({ error: "invalid", code: "MASTER_REQUIRED" }); return; }
+  if (new Date(r.rows[0].expires_at).getTime() < Date.now()) {
+    res.status(401).json({ error: "expired", code: "MASTER_EXPIRED" });
+    return;
+  }
+  res.json({ ok: true, expiresAt: r.rows[0].expires_at });
+});
+
+router.post("/master-password/session/end", authenticate, async (req, res): Promise<void> => {
+  if (!req.user) { res.status(401).json({ error: "auth required" }); return; }
+  const token = req.headers["x-master-session"] as string | undefined;
+  if (!token) { res.json({ ok: true }); return; }
+  await pool.query(`UPDATE master_pw_sessions SET revoked = true WHERE token = $1`, [token]);
+  void recordSecurityEvent({
+    tenantId: req.user.tenantId!, type: "master_pw_lock", ip: req.ip ?? null,
+    userId: parseInt(req.user.sub, 10), userName: req.user.name,
+    severity: "low", metadata: {},
+  });
+  res.json({ ok: true });
 });
 
 export default router;

@@ -84,6 +84,12 @@ export const usersTable = pgTable("users", {
   avatar: text("avatar"),
   isActive: boolean("is_active").notNull().default(true),
   pin: text("pin"),  // bcrypt hash of 6-digit cashier PIN
+  // Shift window — PIN-login is rejected outside [shiftStartsAt, shiftEndsAt].
+  // NULL on both sides = 24/7 access. Set by admin when registering the staff.
+  shiftStartsAt: timestamp("shift_starts_at", { withTimezone: true }),
+  shiftEndsAt:   timestamp("shift_ends_at",   { withTimezone: true }),
+  // Optional kill-switch (admin can disable a user's PIN without deleting them).
+  pinDisabledAt: timestamp("pin_disabled_at", { withTimezone: true }),
   mfaEnabled: boolean("mfa_enabled").notNull().default(false),
   mfaSecret: text("mfa_secret"),
   mfaSecretPending: text("mfa_secret_pending"),

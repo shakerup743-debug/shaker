@@ -95,6 +95,18 @@ ALTER TABLE products       ADD COLUMN IF NOT EXISTS option_groups    JSONB NOT N
 ALTER TABLE order_items    ADD COLUMN IF NOT EXISTS selected_options JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE order_items    ADD COLUMN IF NOT EXISTS base_unit_price  NUMERIC(10, 2);
 
+-- Staff shift window + master-password session table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS shift_starts_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS shift_ends_at   TIMESTAMP WITH TIME ZONE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pin_disabled_at TIMESTAMP WITH TIME ZONE;
+CREATE TABLE IF NOT EXISTS master_pw_sessions (
+  id SERIAL PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+  token TEXT UNIQUE NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL, revoked BOOLEAN NOT NULL DEFAULT false,
+  ip_address INET, user_agent TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_mps_token ON master_pw_sessions(token) WHERE NOT revoked;
+
 CREATE TABLE IF NOT EXISTS subscriptions (
   id SERIAL PRIMARY KEY,
   tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
