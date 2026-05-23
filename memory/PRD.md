@@ -69,12 +69,25 @@ User's investor meeting upcoming. Issues fixed:
   - Sets demo tenant to `demo_mode=TRUE` + enterprise/active subscription
 - `/app/pgdata` stores Postgres data → survives container resets
 
+### 2026-02-23 — Auth Fix + Product Variants/Options
+- ✅ **CRITICAL auth fix**: brute-force lockout was IP-only → blocked all users on shared NAT (cause of "can't login after logout" bug). Switched to **per (email+ip) primary lock at 6 fails** + IP-only DoS guard at 50. Successful login clears prior failures. Verified via 12 backend pytest cases.
+- ✅ **NEW FEATURE — Product Variants/Options**: Each product can carry option groups (sizes, add-ons) with `priceDelta` per choice. Schema: `products.option_groups JSONB`, `order_items.selected_options JSONB`, `order_items.base_unit_price NUMERIC`.
+  - Products admin: collapsible editor for groups + items (required / multi-select toggles, priceDelta input).
+  - POS: tapping a product with options opens a picker dialog; final unit price updates live; same item with different options creates a new cart line; cart shows option summary under each line.
+  - QR menu: same picker for customers.
+  - Backend re-resolves prices server-side using `products.option_groups` (anti-tamper) + rejects missing required groups (HTTP 400 with friendly message).
+  - Invoice + cart display show selected options under each line; tax computed on final post-options total.
+
 ## Next Action Items
-1. **P0** Paddle production keys (currently sandbox/mock) — required only when moving past investor demo into real billing.
-2. **P1** Translate 23 stub locales (deferred by user request).
-3. **P1** Wire `<Can />` across remaining destructive buttons (categories, inventory, suppliers, customers, staff).
-4. **P2** Web Push via VAPID for cross-device "order ready" notifications (currently same-tab only).
-5. **P2** Cloudflare R2 / S3 image upload for CDN-served product images.
+1. **P0** Address tax-model inconsistency: `/api/orders` treats VAT as INCLUSIVE (15/115), `/api/public/orders` treats it as EXCLUSIVE. Same product on the two paths produces different totals — pick one.
+2. **P1** Wire option-group inventory deduction (when a customer picks "Family Size" deduct from the family-size SKU, not the base SKU). Currently options affect price only.
+3. **P1** QR Menu Metrics dashboard (which languages/currencies QR customers actually use → owner insights for tourist-heavy areas).
+4. **P1** Cloudflare R2 / S3 image upload for CDN-served product + option images.
+5. **P2** Paddle production keys (currently sandbox/mock).
+6. **P2** Translate 23 stub locales (deferred by user request).
+7. **P2** Web Push via VAPID for cross-device "order ready" notifications.
+
+### 2026-02-21 — Investor-Demo Sprint
 
 ## Mocked
 - **Paddle billing** — placeholder keys only. Sandbox mode returns mocked checkout URLs and the webhook handler accepts unsigned events. Will flip to live when real keys are supplied.

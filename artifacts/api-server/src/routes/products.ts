@@ -50,6 +50,13 @@ function parseOptionGroups(input: unknown): unknown[] | undefined {
         ...(it.isDefault === true ? { isDefault: true } : {}),
       };
     });
+    // Reject duplicate item ids within a group — the order-resolver picks the
+    // first match and silently drops the rest, which would be confusing.
+    const seen = new Set<string>();
+    for (const it of items) {
+      if (seen.has(it.id)) throw new Error(`optionGroups[${gi}].items: duplicate id "${it.id}"`);
+      seen.add(it.id);
+    }
 
     return {
       id: g.id.trim(),
