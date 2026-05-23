@@ -355,6 +355,7 @@ const MANAGEMENT_GROUPS = [
       { path: "/notifications", icon: Bell,    labelKey: "nav.notifications",testId: "nav-notifications" },
       { path: "/audit",         icon: Shield,  labelKey: "nav.audit",        testId: "nav-audit" },
       { path: "/security",      icon: Lock,    labelKey: "nav.security",     testId: "nav-security" },
+      { path: "/security/fraud", icon: Shield,  labelKey: "nav.fraudMonitoring", testId: "nav-fraud" },
     ],
   },
   {

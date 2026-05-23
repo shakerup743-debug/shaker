@@ -10,6 +10,7 @@ import "@/i18n";
 import { OrderAttachmentInput } from "@/components/order-attachment-input";
 import { ProductOptionsPicker, type ResolvedSelection } from "@/components/product-options-picker";
 import type { ProductOptionGroup } from "@/components/product-options-editor";
+import { buildFingerprintPayload, isValidSaudiPhone, maskPhone } from "@/lib/device-fingerprint";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -74,6 +75,8 @@ async function submitGuestOrder(
   customer: { name: string; phone: string },
   qrToken: string | null,
   attachmentUrl: string | null,
+  fingerprint: ReturnType<typeof buildFingerprintPayload>,
+  scanId: number | null,
 ) {
   const res = await fetch(`${BASE}/api/public/orders?tenantId=${tenantId}`, {
     method: "POST",
@@ -94,13 +97,49 @@ async function submitGuestOrder(
       customerPhone: customer.phone.trim() || undefined,
       qrToken: qrToken ?? undefined,
       attachmentUrl: attachmentUrl ?? undefined,
+      // Security signals for fraud scoring (backend re-hashes server-side)
+      timezone: fingerprint.timezone,
+      screenResolution: fingerprint.screenResolution,
+      clientHints: fingerprint.clientHints,
+      scanId: scanId ?? undefined,
     }),
   });
+  const body = (await res.json()) as {
+    orderId?: number; orderNumber?: string; total?: number;
+    error?: string; code?: string;
+    requiresOtp?: boolean; requiresApproval?: boolean;
+    orderSecId?: number; otpExpiresAt?: string;
+    fraudScore?: number; riskLevel?: string;
+  };
   if (!res.ok) {
-    const body = (await res.json()) as { error?: string };
-    throw new Error(body.error ?? "Failed to place order");
+    const err = new Error(body.error ?? "Failed to place order") as Error & { code?: string };
+    err.code = body.code;
+    throw err;
   }
-  return res.json() as Promise<{ orderId: number; orderNumber: string; total: number }>;
+  return body as Required<Pick<typeof body, "orderId" | "orderNumber" | "total">> & typeof body;
+}
+
+async function verifyOtp(orderSecId: number, code: string, phoneNumber: string) {
+  const r = await fetch(`${BASE}/api/public/qr/otp/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderSecId, code, phoneNumber }),
+  });
+  const body = (await r.json()) as { ok?: boolean; error?: string; status?: string };
+  if (!r.ok || !body.ok) throw new Error(body.error ?? "OTP failed");
+  return body;
+}
+
+async function resendOtp(orderSecId: number) {
+  const r = await fetch(`${BASE}/api/public/qr/otp/resend`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderSecId }),
+  });
+  if (!r.ok) {
+    const b = (await r.json()) as { error?: string };
+    throw new Error(b.error ?? "Resend failed");
+  }
 }
 
 /* ──────────────────────────────────────
@@ -177,6 +216,30 @@ export default function OrderPage() {
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
   const [optionPickerProduct, setOptionPickerProduct] = useState<MenuItem | null>(null);
 
+  // ── QR security state ────────────────────────────────────────────────────
+  const [scanId, setScanId] = useState<number | null>(null);
+  const [otpStage, setOtpStage] = useState<null | {
+    orderSecId: number; orderNumber: string; total: number;
+    requiresApproval: boolean; fraudScore: number;
+  }>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpSubmitting, setOtpSubmitting] = useState(false);
+
+  // Trigger one scan-record per QR session (gives backend the device fingerprint).
+  useEffect(() => {
+    if (!token || !tenantId || scanId !== null) return;
+    const fp = buildFingerprintPayload();
+    fetch(`${BASE}/api/public/qr/scan?tenantId=${tenantId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ qrToken: token, ...fp }),
+    })
+      .then((r) => r.json())
+      .then((d: { scanId?: number }) => { if (d.scanId) setScanId(d.scanId); })
+      .catch(() => { /* non-fatal */ });
+  }, [token, tenantId, scanId]);
+
   const categories = Array.from(
     new Map(
       menu
@@ -242,21 +305,75 @@ export default function OrderPage() {
       setOrderError(isAr ? "الرجاء كتابة اسمك للفاتورة." : "Please enter your name for the bill.");
       return;
     }
+    // Saudi phone is now mandatory for QR orders (fraud protection)
+    if (!isValidSaudiPhone(customerPhone.trim())) {
+      setOrderError(isAr ? "رقم جوال سعودي صحيح مطلوب (05xxxxxxxx)" : "Valid Saudi phone required (05xxxxxxxx)");
+      return;
+    }
     setSubmitting(true);
     setOrderError(null);
     try {
+      const fingerprint = buildFingerprintPayload();
       const result = await submitGuestOrder(
         tenantId, tableNumber, cart, notes,
         { name: customerName, phone: customerPhone }, token, attachmentUrl,
+        fingerprint, scanId,
       );
+      // OTP required by the backend → switch to verify stage instead of showing success.
+      if (result.requiresOtp && result.orderSecId) {
+        setOtpStage({
+          orderSecId: result.orderSecId,
+          orderNumber: result.orderNumber,
+          total: result.total,
+          requiresApproval: !!result.requiresApproval,
+          fraudScore: result.fraudScore ?? 0,
+        });
+        setCartOpen(false);
+        setShowCustomerStep(false);
+        return;
+      }
       setSuccess({ orderNumber: result.orderNumber, total: result.total });
       setCart([]);
       setCartOpen(false);
       setShowCustomerStep(false);
     } catch (e: unknown) {
-      setOrderError(e instanceof Error ? e.message : "Failed to place order");
+      const err = e as Error & { code?: string };
+      if (err.code === "FRAUD_BLOCKED") {
+        setOrderError(isAr
+          ? "⚠️ تم رفض الطلب لأسباب أمنية. الرجاء التواصل مع موظفي المطعم."
+          : "⚠️ Order blocked for security reasons. Please contact restaurant staff.");
+      } else {
+        setOrderError(err.message ?? "Failed to place order");
+      }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleOtpSubmit = async () => {
+    if (!otpStage) return;
+    setOtpSubmitting(true);
+    setOtpError(null);
+    try {
+      await verifyOtp(otpStage.orderSecId, otpCode.trim(), customerPhone.trim());
+      setSuccess({ orderNumber: otpStage.orderNumber, total: otpStage.total });
+      setCart([]);
+      setOtpStage(null);
+      setOtpCode("");
+    } catch (e: unknown) {
+      setOtpError(e instanceof Error ? e.message : "OTP failed");
+    } finally {
+      setOtpSubmitting(false);
+    }
+  };
+
+  const handleOtpResend = async () => {
+    if (!otpStage) return;
+    setOtpError(null);
+    try {
+      await resendOtp(otpStage.orderSecId);
+    } catch (e: unknown) {
+      setOtpError(e instanceof Error ? e.message : "Resend failed");
     }
   };
 
@@ -500,13 +617,13 @@ export default function OrderPage() {
                   {showCustomerStep && (
                     <div className="space-y-2 bg-[#111827]/60 border border-[#E67E22]/30 rounded-2xl p-3" data-testid="qr-customer-step">
                       <p className="text-white font-semibold text-sm flex items-center gap-1.5">
-                        {isAr ? "سجّل اسمك للفاتورة" : "Register your name for the bill"}
+                        {isAr ? "بياناتك (إجبارية للحماية من الاحتيال)" : "Your details (required for fraud protection)"}
                       </p>
                       <input
                         type="text"
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder={isAr ? "اسمك (إلزامي)" : "Your name (required)"}
+                        placeholder={isAr ? "اسمك *" : "Your name *"}
                         required
                         className="w-full bg-[#0B0F19] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:border-[#E67E22]"
                         data-testid="qr-customer-name"
@@ -515,10 +632,17 @@ export default function OrderPage() {
                         type="tel"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder={isAr ? "رقم الجوال (اختياري)" : "Phone (optional)"}
+                        placeholder={isAr ? "رقم الجوال السعودي 05xxxxxxxx *" : "Saudi phone 05xxxxxxxx *"}
+                        required
+                        pattern="(05|\+9665|009665)[0-9]{8}"
                         className="w-full bg-[#0B0F19] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 border border-white/10 focus:outline-none focus:border-[#E67E22] [direction:ltr] text-start"
                         data-testid="qr-customer-phone"
                       />
+                      <p className="text-[10px] text-gray-500 leading-relaxed">
+                        💬 {isAr
+                          ? "إذا اكتُشف نشاط مريب على هذا الطلب، سنرسل لك رمز تحقق عبر واتساب."
+                          : "If suspicious activity is detected, we will send a WhatsApp verification code."}
+                      </p>
                       <div className="pt-1">
                         <OrderAttachmentInput
                           value={attachmentUrl}
@@ -572,6 +696,84 @@ export default function OrderPage() {
           }}
         />
       )}
+
+      {/* WhatsApp OTP verification stage — appears when fraud score ≥ 40 */}
+      <AnimatePresence>
+        {otpStage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            data-testid="qr-otp-modal"
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.92, y: 20 }}
+              className="bg-[#1a1f2e] border border-white/10 rounded-2xl p-6 max-w-sm w-full space-y-4"
+            >
+              <div className="text-center">
+                <div className="w-14 h-14 rounded-full bg-[#25D366]/10 flex items-center justify-center mx-auto mb-3">
+                  <span className="text-2xl">💬</span>
+                </div>
+                <h2 className="text-white text-lg font-bold">
+                  {isAr ? "التحقق عبر واتساب" : "WhatsApp Verification"}
+                </h2>
+                <p className="text-gray-400 text-xs mt-1">
+                  {isAr ? `تم إرسال رمز إلى ${maskPhone(customerPhone)}` : `Code sent to ${maskPhone(customerPhone)}`}
+                </p>
+              </div>
+
+              <input
+                type="text"
+                inputMode="numeric"
+                value={otpCode}
+                onChange={(e) => { setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setOtpError(null); }}
+                placeholder="••••••"
+                maxLength={6}
+                className="w-full bg-[#111827] border border-white/10 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-[0.6em] font-bold focus:outline-none focus:border-[#25D366]"
+                data-testid="qr-otp-input"
+                autoFocus
+              />
+
+              {otpError && (
+                <p className="text-red-400 text-xs text-center" data-testid="qr-otp-error">{otpError}</p>
+              )}
+
+              <button
+                onClick={handleOtpSubmit}
+                disabled={otpCode.length !== 6 || otpSubmitting}
+                className="w-full bg-[#25D366] hover:bg-[#1ebb55] disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-colors"
+                data-testid="qr-otp-submit"
+              >
+                {otpSubmitting ? "..." : (isAr ? "تحقق وأكد الطلب" : "Verify & Confirm")}
+              </button>
+
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <button onClick={handleOtpResend} className="hover:text-white transition-colors" data-testid="qr-otp-resend">
+                  {isAr ? "إعادة الإرسال" : "Resend code"}
+                </button>
+                <button
+                  onClick={() => { setOtpStage(null); setOtpCode(""); setOtpError(null); }}
+                  className="hover:text-white transition-colors"
+                  data-testid="qr-otp-cancel"
+                >
+                  {isAr ? "إلغاء" : "Cancel"}
+                </button>
+              </div>
+
+              {otpStage.requiresApproval && (
+                <p className="text-amber-400 text-[10px] text-center">
+                  {isAr
+                    ? "⚠️ سيخضع طلبك أيضاً لمراجعة الكاشير بعد التحقق."
+                    : "⚠️ Your order will also be reviewed by the cashier after verification."}
+                </p>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
