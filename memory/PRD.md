@@ -69,23 +69,30 @@ User's investor meeting upcoming. Issues fixed:
   - Sets demo tenant to `demo_mode=TRUE` + enterprise/active subscription
 - `/app/pgdata` stores Postgres data → survives container resets
 
-### 2026-02-23 — Auth Fix + Product Variants/Options
-- ✅ **CRITICAL auth fix**: brute-force lockout was IP-only → blocked all users on shared NAT (cause of "can't login after logout" bug). Switched to **per (email+ip) primary lock at 6 fails** + IP-only DoS guard at 50. Successful login clears prior failures. Verified via 12 backend pytest cases.
-- ✅ **NEW FEATURE — Product Variants/Options**: Each product can carry option groups (sizes, add-ons) with `priceDelta` per choice. Schema: `products.option_groups JSONB`, `order_items.selected_options JSONB`, `order_items.base_unit_price NUMERIC`.
-  - Products admin: collapsible editor for groups + items (required / multi-select toggles, priceDelta input).
-  - POS: tapping a product with options opens a picker dialog; final unit price updates live; same item with different options creates a new cart line; cart shows option summary under each line.
-  - QR menu: same picker for customers.
-  - Backend re-resolves prices server-side using `products.option_groups` (anti-tamper) + rejects missing required groups (HTTP 400 with friendly message).
-  - Invoice + cart display show selected options under each line; tax computed on final post-options total.
+### 2026-02-23 — Auth Fix + Product Variants/Options (full + delta pricing)
+- ✅ **CRITICAL auth fix**: brute-force lockout was IP-only → blocked all users on shared NAT (cause of "can't login after logout" bug). Switched to **per (email+ip) primary lock at 6 fails** + IP-only DoS guard at 50. Successful login clears prior failures.
+- ✅ **NEW FEATURE — Product Variants/Options with dual pricing modes**:
+  - `priceMode: "full"` → option REPLACES the base price (Small=20, Medium=30, Large=40)
+  - `priceMode: "delta"` → option ADDS to base/effective price (Cheese=+5)
+  - Schema: `products.option_groups JSONB`, `order_items.selected_options JSONB`, `order_items.base_unit_price NUMERIC`
+  - Shared `resolveOptionPricing` helper used by both `/api/orders` and `/api/public/orders` (anti-tamper)
+  - Required group missing → HTTP 400 with friendly Arabic message
+  - Full-mode without `price` field → rejected at product save
+  - Single-select group receiving 2 picks at order time → rejected
+  - POS + QR menu picker shows absolute price for "full" items, "+price" for "delta" items
+  - Cart shows option summary under each line, invoice prints them too
+- ✅ 24/24 backend pytest cases green
 
 ## Next Action Items
 1. **P0** Address tax-model inconsistency: `/api/orders` treats VAT as INCLUSIVE (15/115), `/api/public/orders` treats it as EXCLUSIVE. Same product on the two paths produces different totals — pick one.
-2. **P1** Wire option-group inventory deduction (when a customer picks "Family Size" deduct from the family-size SKU, not the base SKU). Currently options affect price only.
-3. **P1** QR Menu Metrics dashboard (which languages/currencies QR customers actually use → owner insights for tourist-heavy areas).
+2. **P1** Wire option-group inventory deduction (Family Size → deduct family-size SKU).
+3. **P1** QR Menu Metrics dashboard (which languages/currencies QR customers actually use).
 4. **P1** Cloudflare R2 / S3 image upload for CDN-served product + option images.
 5. **P2** Paddle production keys (currently sandbox/mock).
 6. **P2** Translate 23 stub locales (deferred by user request).
 7. **P2** Web Push via VAPID for cross-device "order ready" notifications.
+
+### 2026-02-21 — Investor-Demo Sprint
 
 ### 2026-02-21 — Investor-Demo Sprint
 

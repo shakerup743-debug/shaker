@@ -47,11 +47,14 @@ function parseOptionGroups(input: unknown): unknown[] | undefined {
       let absolutePrice: number | undefined = undefined;
 
       if (mode === "full") {
-        // MUST carry an absolute price ≥ 0
-        const raw = it.price ?? it.priceDelta;
-        const n = Number(raw);
-        if (!Number.isFinite(n)) {
+        // MUST carry an absolute price ≥ 0. No fallback to priceDelta — that
+        // would silently store a $0 full-priced item (free Large pizza).
+        if (it.price === undefined || it.price === null || it.price === "") {
           throw new Error(`optionGroups[${gi}].items[${ii}] ("${it.name}"): price is required for "سعر كامل" mode`);
+        }
+        const n = Number(it.price);
+        if (!Number.isFinite(n)) {
+          throw new Error(`optionGroups[${gi}].items[${ii}] ("${it.name}"): price must be a number`);
         }
         if (n < 0) {
           throw new Error(`optionGroups[${gi}].items[${ii}] ("${it.name}"): price must be ≥ 0`);

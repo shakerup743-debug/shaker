@@ -54,11 +54,20 @@ export function resolveOptionPricing(
 ): ResolvedOptions {
   const selections: ResolvedOptionSelection[] = [];
 
+  // Track picks per group so we can reject duplicates in single-select groups.
+  const picksByGroup = new Map<string, number>();
+
   for (const sel of clientSelections) {
     const group = productGroups.find((g) => g.id === sel.groupId);
     if (!group) continue;
     const choice = group.items.find((c) => c.id === sel.itemId);
     if (!choice) continue;
+
+    const count = (picksByGroup.get(group.id) ?? 0) + 1;
+    picksByGroup.set(group.id, count);
+    if (!group.multiSelect && count > 1) {
+      throw new Error(`Group "${group.name}" allows only one selection`);
+    }
 
     const mode: "delta" | "full" = choice.priceMode === "full" ? "full" : "delta";
 
