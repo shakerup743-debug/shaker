@@ -1,0 +1,36 @@
+{
+  "summary": "Backend-only validation of iteration-6 priceMode='full'/'delta' option items. Extended /app/backend/tests/test_auth_and_options.py with 12 new tests covering full-mode storage/validation, full-only orders, full+delta mix, full+multi-delta with qty, snapshot preservation, public-QR parity, and backward-compat delta-only products. Also re-ran iteration-5 auth + options regressions. All 24/24 pytest cases pass against http://localhost:8001.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth_and_options.py",
+    "/app/test_reports/pytest/iteration6_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "product-options.ts:62-63 silently coerces unknown priceMode values to 'delta' (choice.priceMode === 'full' ? 'full' : 'delta'). Consider strict validation — if a client sends priceMode='absolute' it is treated as delta with priceDelta=0 (effectively free). Low risk because parseOptionGroups already canonicalises on POST, but a stored-then-mutated row from another path could leak this.",
+    "products.ts parseOptionGroups (line 51) falls back from `it.price` to `it.priceDelta` for full-mode items. This is forgiving for legacy clients but means a full item lacking `price` but carrying `priceDelta:0` would silently store as a $0 full price (free large pizza). Recommend rejecting full-mode items that pass priceDelta only — keep just the `it.price` branch.",
+    "Tax-model inconsistency between /api/orders (15% INCLUSIVE: total = subtotal-discount; tax = total*15/115) and /api/public/orders (15% EXCLUSIVE: tax = subtotal*0.15; total = subtotal+tax) still present from iteration 5. Same product on the two paths shows different totals (e.g. Large pizza unit=40 → /api/orders total=40 vs /api/public/orders total=46). Pre-existing — not introduced by this iteration.",
+    "orders.ts (line 241) still references `(req as ...).user?.userId` but the JWT payload field is `sub`. cashier_id always recorded NULL in discount_logs. Pre-existing.",
+    "parseOptionGroups still does not validate that for required+single-select 'full' groups a default exists, nor that multiSelect=false groups receive at most one selection on order POST. The resolver in product-options.ts iterates all client selections without enforcing the single-select cap — a client could double-pick within 'size'. Worth tightening."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth_and_options.py",
+    "/app/test_reports/pytest/iteration6_results.xml",
+    "/app/test_reports/iteration_6.json"
+  ],
+  "success_rate": { "backend": "100% (24/24)", "frontend": "n/a (not requested)" },
+  "test_credentials": "demo@foodpro.com / Demo2026! (existing). Ephemeral signups use test_<ts>@example.com / Test12345! with businessType=traditional.",
+  "seed_data_creation": "Each module-scoped fixture creates a fresh tenant_a/tenant_b. Pizza product (base=15) with FULL-mode size group (Small=20/Medium=30/Large=40) and DELTA-mode addons (Cheese=+5, Sauce=+2) is created on the fly per session.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 6 verified scenarios per review_request: (1) full-mode item save+return ok, (2) delta backward-compat ok, (3) full-mode without price → 400 (error message contains 'price'), (4) base=15 + FULL Large=40 alone → unitPrice=40 (base IGNORED — verified), (5) base=15 + FULL Medium=30 + DELTA cheese=+5 → unitPrice=35 (this matches review_request spec; note other_misc_info said 37 by including Sauce=+2, which is exercised separately), (6) base=15 + FULL Small=20 + cheese=+5 + sauce=+2 → unitPrice=27, qty=2 → subtotal=54, (7) public/orders parity verified, (8) GET /api/orders/:id preserves priceMode + price/priceDelta per item snapshot, (9) required group missing → 400 on both /api/orders and /api/public/orders, (10) brute-force per-(email+ip) lockout regression still GREEN (6th attempt 429 with scope=email_ip), (11) simple products with no optionGroups still create+order normally. Note tax-model divergence between /api/orders (inclusive) and /api/public/orders (exclusive) persists from iteration 5.",
+  "rca_of_the_issue": "Not a bug fix — feature extension. The new resolver lib/product-options.ts cleanly separates full vs delta items. Effective base price = SUM(full prices) when any full picked, else product.base. unit = effective_base + SUM(delta priceDeltas). Verified mathematically and by snapshot inspection that both /api/orders and /api/public/orders go through the SAME resolveOptionPricing helper, so pricing rules are identical (only the tax-model differs — separate pre-existing inconsistency)."
+}

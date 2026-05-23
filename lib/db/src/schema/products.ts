@@ -24,11 +24,20 @@ export const productsTable = pgTable("products", {
 });
 
 // Product option group — e.g. "Size", "Toppings". Stored as JSON on products row.
+//
+// Each item carries either:
+//   priceMode = "delta" → priceDelta is ADDED to the base price (toppings, add-ons)
+//   priceMode = "full"  → price REPLACES the base price entirely (sizes)
+//
+// When an order line has multiple "full" picks, their prices SUM (rare, only if
+// the cashier multi-selects in a single-select group). Deltas always add on top.
 export interface ProductOptionItem {
   id: string;                  // stable identifier (uuid or slug)
   name: string;                // displayed label
   nameEn?: string;             // english label (optional)
-  priceDelta: number;          // amount added to base price when selected
+  priceMode?: "delta" | "full";// default: "delta"
+  priceDelta: number;          // additive amount (mode=delta). 0 when mode=full.
+  price?: number;              // absolute price (mode=full only)
   isDefault?: boolean;         // pre-selected on POS open
 }
 

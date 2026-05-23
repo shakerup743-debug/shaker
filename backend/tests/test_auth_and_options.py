@@ -281,6 +281,238 @@ class TestProductOptions:
         assert g.status_code == 404
 
 
+# ─── (C) PRICEMODE: FULL + DELTA (iteration 6) ────────────────────────────────
+
+PIZZA_OPTION_GROUPS = [
+    {
+        "id": "size", "name": "Size", "required": True, "multiSelect": False,
+        "items": [
+            {"id": "sm", "name": "Small",  "priceMode": "full", "price": 20},
+            {"id": "md", "name": "Medium", "priceMode": "full", "price": 30},
+            {"id": "lg", "name": "Large",  "priceMode": "full", "price": 40},
+        ],
+    },
+    {
+        "id": "addons", "name": "Add-ons", "required": False, "multiSelect": True,
+        "items": [
+            {"id": "cheese", "name": "Cheese", "priceMode": "delta", "priceDelta": 5},
+            {"id": "sauce",  "name": "Sauce",  "priceMode": "delta", "priceDelta": 2},
+        ],
+    },
+]
+
+
+@pytest.fixture(scope="module")
+def pizza_product(tenant_a):
+    cat = _category_id(tenant_a)
+    r = requests.post(f"{BASE_URL}/api/products", headers=_h(tenant_a), json={
+        "name": f"Pizza_{_ts()}", "price": 15, "categoryId": cat,
+        "optionGroups": PIZZA_OPTION_GROUPS,
+    }, timeout=10)
+    assert r.status_code == 201, r.text
+    body = r.json()
+    return {"id": body["id"], "raw": body}
+
+
+class TestPriceModeFullDelta:
+
+    def test_create_product_with_full_mode_items_stores_price(self, pizza_product):
+        groups = pizza_product["raw"].get("optionGroups", [])
+        size = next(g for g in groups if g["id"] == "size")
+        sm = next(i for i in size["items"] if i["id"] == "sm")
+        assert sm["priceMode"] == "full"
+        assert sm["price"] == 20
+        assert sm.get("priceDelta", 0) == 0
+        addons = next(g for g in groups if g["id"] == "addons")
+        ch = next(i for i in addons["items"] if i["id"] == "cheese")
+        assert ch["priceMode"] == "delta"
+        assert ch["priceDelta"] == 5
+        # `price` should NOT be set for delta items
+        assert "price" not in ch or ch.get("price") in (None, 0)
+
+    def test_create_product_full_mode_without_price_rejected(self, tenant_a):
+        cat = _category_id(tenant_a)
+        bad = {
+            "name": f"BadPizza_{_ts()}", "price": 15, "categoryId": cat,
+            "optionGroups": [{
+                "id": "size", "name": "Size", "required": True, "multiSelect": False,
+                "items": [{"id": "sm", "name": "Small", "priceMode": "full"}],  # no price
+            }],
+        }
+        r = requests.post(f"{BASE_URL}/api/products", headers=_h(tenant_a), json=bad, timeout=10)
+        assert r.status_code == 400, r.text
+        assert "price" in r.text.lower(), r.text
+
+    def test_delta_only_still_supported(self, tenant_a):
+        cat = _category_id(tenant_a)
+        r = requests.post(f"{BASE_URL}/api/products", headers=_h(tenant_a), json={
+            "name": f"DeltaOnly_{_ts()}", "price": 10, "categoryId": cat,
+            "optionGroups": [{
+                "id": "ex", "name": "Extras", "required": False, "multiSelect": True,
+                "items": [{"id": "x1", "name": "Extra", "priceMode": "delta", "priceDelta": 3}],
+            }],
+        }, timeout=10)
+        assert r.status_code == 201, r.text
+        item = r.json()["optionGroups"][0]["items"][0]
+        assert item["priceMode"] == "delta"
+        assert item["priceDelta"] == 3
+
+    def test_order_full_only_overrides_base(self, tenant_a, pizza_product):
+        # base 15, FULL Large=40 only → unit 40 (base IGNORED)
+        r = requests.post(f"{BASE_URL}/api/orders", headers=_h(tenant_a), json={
+            "type": "dine_in",
+            "items": [{
+                "productId": pizza_product["id"], "quantity": 1,
+                "selectedOptions": [{"groupId": "size", "itemId": "lg"}],
+            }],
+        }, timeout=10)
+        assert r.status_code == 201, r.text
+        item = r.json()["items"][0]
+        assert item["unitPrice"] == 40, item
+        # Snapshot must carry priceMode + price
+        sel = item["selectedOptions"][0]
+        assert sel["priceMode"] == "full"
+        assert sel.get("price") == 40
+
+    def test_order_full_plus_delta(self, tenant_a, pizza_product):
+        # base 15, FULL Medium=30 + DELTA Cheese=+5 → 35
+        r = requests.post(f"{BASE_URL}/api/orders", headers=_h(tenant_a), json={
+            "type": "dine_in",
+            "items": [{
+                "productId": pizza_product["id"], "quantity": 1,
+                "selectedOptions": [
+                    {"groupId": "size", "itemId": "md"},
+                    {"groupId": "addons", "itemId": "cheese"},
+                ],
+            }],
+        }, timeout=10)
+        assert r.status_code == 201, r.text
+        item = r.json()["items"][0]
+        assert item["unitPrice"] == 35, item
+        modes = {s["itemId"]: s["priceMode"] for s in item["selectedOptions"]}
+        assert modes["md"] == "full"
+        assert modes["cheese"] == "delta"
+
+    def test_order_full_plus_two_deltas_qty2_subtotal(self, tenant_a, pizza_product):
+        # base 15, FULL Small=20 + Cheese=+5 + Sauce=+2 → unit 27, qty 2 → 54
+        r = requests.post(f"{BASE_URL}/api/orders", headers=_h(tenant_a), json={
+            "type": "dine_in",
+            "items": [{
+                "productId": pizza_product["id"], "quantity": 2,
+                "selectedOptions": [
+                    {"groupId": "size", "itemId": "sm"},
+                    {"groupId": "addons", "itemId": "cheese"},
+                    {"groupId": "addons", "itemId": "sauce"},
+                ],
+            }],
+        }, timeout=10)
+        assert r.status_code == 201, r.text
+        item = r.json()["items"][0]
+        assert item["unitPrice"] == 27, item
+        assert item["subtotal"] == 54, item
+
+    def test_order_delta_only_uses_base_plus_delta(self, tenant_a, pizza_product):
+        # NOTE: 'size' is required, so we cannot strictly omit it here. The
+        # 'delta only' rule (effective_base == product.base) is exercised by
+        # Burger product (base 20, +10 +3 → 33) already covered in
+        # TestProductOptions.test_order_unit_price_includes_options.
+        # Here we additionally pick the cheapest full size to confirm full
+        # picks override base and behave deterministically per the rule.
+        r = requests.post(f"{BASE_URL}/api/orders", headers=_h(tenant_a), json={
+            "type": "dine_in",
+            "items": [{
+                "productId": pizza_product["id"], "quantity": 1,
+                "selectedOptions": [
+                    {"groupId": "size", "itemId": "sm"},
+                    {"groupId": "addons", "itemId": "cheese"},
+                    {"groupId": "addons", "itemId": "sauce"},
+                ],
+            }],
+        }, timeout=10)
+        assert r.status_code == 201, r.text
+        assert r.json()["items"][0]["unitPrice"] == 27
+
+    def test_order_missing_required_size_returns_400(self, tenant_a, pizza_product):
+        r = requests.post(f"{BASE_URL}/api/orders", headers=_h(tenant_a), json={
+            "type": "dine_in",
+            "items": [{
+                "productId": pizza_product["id"], "quantity": 1,
+                "selectedOptions": [{"groupId": "addons", "itemId": "cheese"}],
+            }],
+        }, timeout=10)
+        assert r.status_code == 400, r.text
+
+    def test_get_order_preserves_priceMode_snapshot(self, tenant_a, pizza_product):
+        # create order
+        r = requests.post(f"{BASE_URL}/api/orders", headers=_h(tenant_a), json={
+            "type": "dine_in",
+            "items": [{
+                "productId": pizza_product["id"], "quantity": 1,
+                "selectedOptions": [
+                    {"groupId": "size", "itemId": "lg"},
+                    {"groupId": "addons", "itemId": "cheese"},
+                ],
+            }],
+        }, timeout=10)
+        assert r.status_code == 201, r.text
+        oid = r.json()["id"]
+        # GET back
+        g = requests.get(f"{BASE_URL}/api/orders/{oid}", headers=_h(tenant_a), timeout=10)
+        assert g.status_code == 200
+        item = g.json()["items"][0]
+        for s in item["selectedOptions"]:
+            assert s["priceMode"] in ("full", "delta")
+            if s["priceMode"] == "full":
+                assert "price" in s and s["price"] is not None
+            else:
+                assert "priceDelta" in s
+
+
+class TestPublicGuestOrderPriceMode:
+    """QR public-path must apply the same priceMode rules."""
+
+    def test_public_order_full_plus_delta(self, tenant_a, pizza_product):
+        tid = tenant_a["tenantId"]
+        # base=15, FULL Large=40 + DELTA Cheese=+5 → unit 45
+        r = requests.post(
+            f"{BASE_URL}/api/public/orders?tenantId={tid}",
+            json={"tableNumber": "T7",
+                  "items": [{"productId": pizza_product["id"], "quantity": 1,
+                             "selectedOptions": [
+                                 {"groupId": "size", "itemId": "lg"},
+                                 {"groupId": "addons", "itemId": "cheese"},
+                             ]}]},
+            timeout=10)
+        assert r.status_code == 201, r.text
+        body = r.json()
+        # subtotal = 45 on public path
+        assert abs(body["subtotal"] - 45) < 0.01, body
+
+    def test_public_order_full_only_overrides_base(self, tenant_a, pizza_product):
+        tid = tenant_a["tenantId"]
+        r = requests.post(
+            f"{BASE_URL}/api/public/orders?tenantId={tid}",
+            json={"tableNumber": "T8",
+                  "items": [{"productId": pizza_product["id"], "quantity": 1,
+                             "selectedOptions": [
+                                 {"groupId": "size", "itemId": "sm"},
+                             ]}]},
+            timeout=10)
+        assert r.status_code == 201, r.text
+        body = r.json()
+        # Small=20 only; base 15 ignored. subtotal=20
+        assert abs(body["subtotal"] - 20) < 0.01, body
+
+    def test_public_order_missing_required_returns_400(self, tenant_a, pizza_product):
+        tid = tenant_a["tenantId"]
+        r = requests.post(
+            f"{BASE_URL}/api/public/orders?tenantId={tid}",
+            json={"tableNumber": "T9",
+                  "items": [{"productId": pizza_product["id"], "quantity": 1}]},
+            timeout=10)
+        assert r.status_code == 400, r.text
+
+
 class TestPublicGuestOrder:
     """Public QR ordering with options."""
 

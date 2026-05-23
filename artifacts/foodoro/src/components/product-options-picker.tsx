@@ -12,7 +12,9 @@ export interface ResolvedSelection {
   groupName: string;
   itemId: string;
   itemName: string;
+  priceMode: "delta" | "full";
   priceDelta: number;
+  price?: number;
 }
 
 interface Props {
@@ -76,19 +78,34 @@ export function ProductOptionsPicker({
       for (const iid of chosen) {
         const it = g.items.find((x) => x.id === iid);
         if (!it) continue;
-        out.push({
-          groupId: g.id,
-          groupName: g.name,
-          itemId: it.id,
-          itemName: it.name,
-          priceDelta: Number(it.priceDelta) || 0,
-        });
+        const mode: "delta" | "full" = it.priceMode === "full" ? "full" : "delta";
+        if (mode === "full") {
+          out.push({
+            groupId: g.id, groupName: g.name,
+            itemId: it.id, itemName: it.name,
+            priceMode: "full",
+            priceDelta: 0,
+            price: Number(it.price) || 0,
+          });
+        } else {
+          out.push({
+            groupId: g.id, groupName: g.name,
+            itemId: it.id, itemName: it.name,
+            priceMode: "delta",
+            priceDelta: Number(it.priceDelta) || 0,
+          });
+        }
       }
     }
-    const delta = out.reduce((s, r) => s + r.priceDelta, 0);
+    const fulls = out.filter((s) => s.priceMode === "full");
+    const deltas = out.filter((s) => s.priceMode === "delta");
+    const effectiveBase = fulls.length > 0
+      ? fulls.reduce((sum, s) => sum + (s.price ?? 0), 0)
+      : basePrice;
+    const deltaSum = deltas.reduce((sum, s) => sum + s.priceDelta, 0);
     return {
       resolved: out,
-      finalPrice: Math.round((basePrice + delta) * 100) / 100,
+      finalPrice: Math.round((effectiveBase + deltaSum) * 100) / 100,
       missingRequired: missing,
     };
   }, [picks, optionGroups, basePrice]);
@@ -127,6 +144,7 @@ export function ProductOptionsPicker({
                 <div className="grid grid-cols-1 gap-1.5">
                   {g.items.map((it) => {
                     const active = chosen.includes(it.id);
+                    const mode = it.priceMode === "full" ? "full" : "delta";
                     return (
                       <button
                         key={it.id}
@@ -147,9 +165,15 @@ export function ProductOptionsPicker({
                           />
                           {it.name}
                         </span>
-                        <span className={`text-[11px] ${it.priceDelta > 0 ? "text-primary" : "text-muted-foreground"}`}>
-                          {it.priceDelta > 0 ? `+ ${it.priceDelta.toFixed(2)}` : it.priceDelta < 0 ? it.priceDelta.toFixed(2) : "0"}
-                        </span>
+                        {mode === "full" ? (
+                          <span className="text-[11px] font-semibold text-primary">
+                            {(Number(it.price) || 0).toFixed(2)} {currency}
+                          </span>
+                        ) : (
+                          <span className={`text-[11px] ${it.priceDelta > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                            {it.priceDelta > 0 ? `+ ${it.priceDelta.toFixed(2)}` : it.priceDelta < 0 ? it.priceDelta.toFixed(2) : "+ 0"}
+                          </span>
+                        )}
                       </button>
                     );
                   })}

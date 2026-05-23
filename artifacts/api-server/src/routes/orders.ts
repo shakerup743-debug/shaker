@@ -22,6 +22,11 @@ import { logAudit } from "../lib/audit.js";
 import { fireWebhooks } from "./webhooks.js";
 import { requireTenant } from "../middleware/require-tenant.js";
 import {
+  resolveOptionPricing,
+  type ProductOptionGroupSpec,
+  type ClientSelection,
+} from "../lib/product-options.js";
+import {
   completeOrder,
   OrderNotFoundError,
   OrderAlreadyCompletedError,
@@ -138,7 +143,6 @@ router.post("/orders", async (req, res): Promise<void> => {
   // Client-side passes `selectedOptions` alongside each item (outside the strict
   // Zod schema). We re-resolve each selection against the product's own
   // optionGroups so the customer can never tamper with prices.
-  type ClientSelection = { groupId: string; itemId: string };
   type RawItem = { productId: number; selectedOptions?: ClientSelection[] };
   const rawItems = (req.body as { items?: RawItem[] }).items ?? [];
 
@@ -150,35 +154,14 @@ router.post("/orders", async (req, res): Promise<void> => {
     if (!product) throw new Error(`Product ${item.productId} not found`);
     const basePrice = parseFloat(product.price);
 
-    // Resolve any options the cashier / QR-menu attached to this line.
-    const clientSelections = rawItems[idx]?.selectedOptions ?? [];
-    const productGroups = (product.optionGroups ?? []) as Array<{
-      id: string; name: string; required: boolean; multiSelect: boolean;
-      items: Array<{ id: string; name: string; priceDelta: number }>;
-    }>;
-    const resolved: Array<{ groupId: string; groupName: string; itemId: string; itemName: string; priceDelta: number }> = [];
-    for (const sel of clientSelections) {
-      const group = productGroups.find((g) => g.id === sel.groupId);
-      if (!group) continue;
-      const choice = group.items.find((c) => c.id === sel.itemId);
-      if (!choice) continue;
-      resolved.push({
-        groupId: group.id,
-        groupName: group.name,
-        itemId: choice.id,
-        itemName: choice.name,
-        priceDelta: Number(choice.priceDelta) || 0,
-      });
-    }
-    // Enforce required groups — order rejected if a mandatory group has no pick.
-    for (const g of productGroups) {
-      if (g.required && !resolved.some((r) => r.groupId === g.id)) {
-        throw new Error(`Option group "${g.name}" is required for ${product.name}`);
-      }
-    }
+    const productGroups = (product.optionGroups ?? []) as ProductOptionGroupSpec[];
+    const { selections, unitPrice } = resolveOptionPricing(
+      basePrice,
+      productGroups,
+      rawItems[idx]?.selectedOptions ?? [],
+      product.name,
+    );
 
-    const optionsDelta = resolved.reduce((sum, r) => sum + r.priceDelta, 0);
-    const unitPrice = Math.round((basePrice + optionsDelta) * 100) / 100;
     const itemSubtotal = Math.round(unitPrice * item.quantity * 100) / 100;
     subtotal += itemSubtotal;
     return {
@@ -189,7 +172,7 @@ router.post("/orders", async (req, res): Promise<void> => {
       baseUnitPrice: String(basePrice),
       subtotal: String(itemSubtotal),
       notes: item.notes ?? null,
-      selectedOptions: resolved,
+      selectedOptions: selections,
     };
     });
   } catch (e) {

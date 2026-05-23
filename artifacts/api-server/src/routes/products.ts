@@ -20,7 +20,7 @@ const router: IRouter = Router();
 router.use(requireTenant);
 
 // ── Option group validation (variants / add-ons) ───────────────────────────
-interface RawOptionItem { id?: unknown; name?: unknown; nameEn?: unknown; priceDelta?: unknown; isDefault?: unknown }
+interface RawOptionItem { id?: unknown; name?: unknown; nameEn?: unknown; priceMode?: unknown; priceDelta?: unknown; price?: unknown; isDefault?: unknown }
 interface RawOptionGroup { id?: unknown; name?: unknown; nameEn?: unknown; required?: unknown; multiSelect?: unknown; maxSelect?: unknown; items?: unknown }
 
 function parseOptionGroups(input: unknown): unknown[] | undefined {
@@ -40,13 +40,40 @@ function parseOptionGroups(input: unknown): unknown[] | undefined {
       if (!it || typeof it !== "object") throw new Error(`optionGroups[${gi}].items[${ii}] must be an object`);
       if (typeof it.id   !== "string" || !it.id.trim())   throw new Error(`optionGroups[${gi}].items[${ii}].id required`);
       if (typeof it.name !== "string" || !it.name.trim()) throw new Error(`optionGroups[${gi}].items[${ii}].name required`);
-      const delta = Number(it.priceDelta);
-      if (!Number.isFinite(delta)) throw new Error(`optionGroups[${gi}].items[${ii}].priceDelta must be a number`);
+
+      const mode: "delta" | "full" = it.priceMode === "full" ? "full" : "delta";
+
+      let priceDelta = 0;
+      let absolutePrice: number | undefined = undefined;
+
+      if (mode === "full") {
+        // MUST carry an absolute price ≥ 0
+        const raw = it.price ?? it.priceDelta;
+        const n = Number(raw);
+        if (!Number.isFinite(n)) {
+          throw new Error(`optionGroups[${gi}].items[${ii}] ("${it.name}"): price is required for "سعر كامل" mode`);
+        }
+        if (n < 0) {
+          throw new Error(`optionGroups[${gi}].items[${ii}] ("${it.name}"): price must be ≥ 0`);
+        }
+        absolutePrice = Math.round(n * 100) / 100;
+        priceDelta = 0;
+      } else {
+        // delta mode — priceDelta may be negative (e.g. discount option)
+        const n = Number(it.priceDelta);
+        if (!Number.isFinite(n)) {
+          throw new Error(`optionGroups[${gi}].items[${ii}] ("${it.name}"): priceDelta required for "سعر إضافي" mode`);
+        }
+        priceDelta = Math.round(n * 100) / 100;
+      }
+
       return {
         id: it.id.trim(),
         name: it.name.trim().slice(0, 80),
         ...(typeof it.nameEn === "string" ? { nameEn: it.nameEn.trim().slice(0, 80) } : {}),
-        priceDelta: Math.round(delta * 100) / 100,
+        priceMode: mode,
+        priceDelta,
+        ...(absolutePrice !== undefined ? { price: absolutePrice } : {}),
         ...(it.isDefault === true ? { isDefault: true } : {}),
       };
     });

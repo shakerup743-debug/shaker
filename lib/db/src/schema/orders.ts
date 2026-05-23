@@ -54,7 +54,9 @@ export interface SelectedOption {
   groupName: string;
   itemId: string;
   itemName: string;
-  priceDelta: number;
+  priceMode: "delta" | "full"; // copied from the source option at order time
+  priceDelta: number;          // 0 when mode=full
+  price?: number;              // absolute price when mode=full
 }
 
 export const insertOrderSchema = createInsertSchema(ordersTable).omit({ id: true, createdAt: true });

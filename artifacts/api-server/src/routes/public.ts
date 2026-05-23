@@ -10,6 +10,11 @@ import {
   OrderAlreadyCompletedError,
 } from "../services/orders.js";
 import { logAudit } from "../lib/audit.js";
+import {
+  resolveOptionPricing,
+  type ProductOptionGroupSpec,
+  type ClientSelection,
+} from "../lib/product-options.js";
 import type pg from "pg";
 
 const router: IRouter = Router();
@@ -152,12 +157,11 @@ router.post("/public/orders", async (req, res): Promise<void> => {
       productId: number; productName: string; quantity: number;
       unitPrice: string; baseUnitPrice: string; subtotal: string;
       notes: string | null;
-      selectedOptions: Array<{ groupId: string; groupName: string; itemId: string; itemName: string; priceDelta: number }>;
+      selectedOptions: Array<{ groupId: string; groupName: string; itemId: string; itemName: string; priceMode: "delta" | "full"; priceDelta: number; price?: number }>;
     }[] = [];
 
     // Raw items with potential selectedOptions outside the strict zod schema
-    type RawSel = { groupId: string; itemId: string };
-    const rawItems = (req.body as { items?: Array<{ selectedOptions?: RawSel[] }> }).items ?? [];
+    const rawItems = (req.body as { items?: Array<{ selectedOptions?: ClientSelection[] }> }).items ?? [];
 
     for (let idx = 0; idx < items.length; idx++) {
       const item = items[idx]!;
@@ -166,40 +170,27 @@ router.post("/public/orders", async (req, res): Promise<void> => {
       if (!product.isActive || !product.kitchenAvailable) { res.status(400).json({ error: `Product ${product.name} is not available` }); return; }
       const basePrice = parseFloat(product.price);
 
-      // Resolve options server-side using product.optionGroups (anti-tamper)
-      const clientSel = rawItems[idx]?.selectedOptions ?? [];
-      const productGroups = (product.optionGroups ?? []) as Array<{
-        id: string; name: string; required: boolean;
-        items: Array<{ id: string; name: string; priceDelta: number }>;
-      }>;
-      const resolved: Array<{ groupId: string; groupName: string; itemId: string; itemName: string; priceDelta: number }> = [];
-      for (const sel of clientSel) {
-        const group = productGroups.find((g) => g.id === sel.groupId);
-        if (!group) continue;
-        const choice = group.items.find((c) => c.id === sel.itemId);
-        if (!choice) continue;
-        resolved.push({
-          groupId: group.id, groupName: group.name,
-          itemId: choice.id, itemName: choice.name,
-          priceDelta: Number(choice.priceDelta) || 0,
-        });
-      }
-      for (const g of productGroups) {
-        if (g.required && !resolved.some((r) => r.groupId === g.id)) {
-          res.status(400).json({ error: `Option "${g.name}" is required for ${product.name}` });
-          return;
-        }
+      const productGroups = (product.optionGroups ?? []) as ProductOptionGroupSpec[];
+      let resolved: ReturnType<typeof resolveOptionPricing>;
+      try {
+        resolved = resolveOptionPricing(
+          basePrice,
+          productGroups,
+          rawItems[idx]?.selectedOptions ?? [],
+          product.name,
+        );
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+        return;
       }
 
-      const optionsDelta = resolved.reduce((s, r) => s + r.priceDelta, 0);
-      const unitPrice = Math.round((basePrice + optionsDelta) * 100) / 100;
-      const itemSubtotal = Math.round(unitPrice * item.quantity * 100) / 100;
+      const itemSubtotal = Math.round(resolved.unitPrice * item.quantity * 100) / 100;
       subtotal += itemSubtotal;
       itemsToInsert.push({
         productId: item.productId, productName: product.name, quantity: item.quantity,
-        unitPrice: String(unitPrice), baseUnitPrice: String(basePrice),
+        unitPrice: String(resolved.unitPrice), baseUnitPrice: String(basePrice),
         subtotal: String(itemSubtotal), notes: item.notes ?? null,
-        selectedOptions: resolved,
+        selectedOptions: resolved.selections,
       });
     }
 

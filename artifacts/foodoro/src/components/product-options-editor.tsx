@@ -7,7 +7,12 @@ import { Label } from "@/components/ui/label";
 export interface ProductOptionItem {
   id: string;
   name: string;
+  /** "delta" = adds to base price (e.g. "+5 ر.س"); "full" = replaces base entirely (e.g. "حجم كبير = 40 ر.س") */
+  priceMode: "delta" | "full";
+  /** Used when priceMode === "delta". 0 when mode is "full". */
   priceDelta: number;
+  /** Used when priceMode === "full". Absolute price for this variant. */
+  price?: number;
   isDefault?: boolean;
 }
 
@@ -40,7 +45,7 @@ export function ProductOptionsEditor({
       name: "",
       required: false,
       multiSelect: false,
-      items: [{ id: uid(), name: "", priceDelta: 0 }],
+      items: [{ id: uid(), name: "", priceMode: "delta", priceDelta: 0 }],
     };
     onChange([...groups, g]);
     setOpenGroup(g.id);
@@ -51,11 +56,11 @@ export function ProductOptionsEditor({
 
   const removeGroup = (id: string) => onChange(groups.filter((g) => g.id !== id));
 
-  const addItem = (gid: string) =>
+  const addItem = (gid: string, mode: "delta" | "full") =>
     updateGroup(gid, {
       items: [
         ...(groups.find((g) => g.id === gid)?.items ?? []),
-        { id: uid(), name: "", priceDelta: 0 },
+        { id: uid(), name: "", priceMode: mode, priceDelta: 0, ...(mode === "full" ? { price: 0 } : {}) },
       ],
     });
 
@@ -63,7 +68,14 @@ export function ProductOptionsEditor({
     const g = groups.find((x) => x.id === gid);
     if (!g) return;
     updateGroup(gid, {
-      items: g.items.map((it) => (it.id === iid ? { ...it, ...patch } : it)),
+      items: g.items.map((it) => {
+        if (it.id !== iid) return it;
+        const next = { ...it, ...patch };
+        // Keep the unused field in a sane state when mode flips
+        if (next.priceMode === "delta") next.price = undefined;
+        if (next.priceMode === "full" && (next.price === undefined || Number.isNaN(next.price))) next.price = 0;
+        return next;
+      }),
     });
   };
 
@@ -176,25 +188,54 @@ export function ProductOptionsEditor({
                         className="flex gap-1.5 items-center bg-background rounded-lg px-2 py-1.5 border border-border"
                       >
                         <Input
-                          className="bg-transparent border-0 h-7 text-xs flex-1 px-1"
+                          className="bg-transparent border-0 h-7 text-xs flex-1 px-1 min-w-0"
                           value={it.name}
                           onChange={(e) => updateItem(g.id, it.id, { name: e.target.value })}
-                          placeholder="اسم الخيار"
+                          placeholder="اسم الخيار (مثل: كبير)"
                           data-testid={`item-name-${it.id}`}
                         />
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground">+</span>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="bg-transparent border-0 h-7 text-xs w-16 px-1 text-end"
-                            value={it.priceDelta}
-                            onChange={(e) =>
-                              updateItem(g.id, it.id, { priceDelta: parseFloat(e.target.value) || 0 })
-                            }
-                            data-testid={`item-price-${it.id}`}
-                          />
-                        </div>
+                        <select
+                          value={it.priceMode}
+                          onChange={(e) => updateItem(g.id, it.id, { priceMode: e.target.value as "delta" | "full" })}
+                          className="bg-background border border-border rounded h-7 text-[10px] px-1 text-foreground"
+                          data-testid={`item-mode-${it.id}`}
+                          title="نوع السعر"
+                        >
+                          <option value="full">سعر كامل</option>
+                          <option value="delta">سعر إضافي</option>
+                        </select>
+                        {it.priceMode === "full" ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              className="bg-transparent border-0 h-7 text-xs w-20 px-1 text-end"
+                              value={it.price ?? 0}
+                              onChange={(e) =>
+                                updateItem(g.id, it.id, { price: parseFloat(e.target.value) || 0 })
+                              }
+                              placeholder="السعر"
+                              data-testid={`item-price-${it.id}`}
+                            />
+                            <span className="text-[10px] text-muted-foreground">ر.س</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-muted-foreground">+</span>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              className="bg-transparent border-0 h-7 text-xs w-16 px-1 text-end"
+                              value={it.priceDelta}
+                              onChange={(e) =>
+                                updateItem(g.id, it.id, { priceDelta: parseFloat(e.target.value) || 0 })
+                              }
+                              placeholder="إضافي"
+                              data-testid={`item-delta-${it.id}`}
+                            />
+                          </div>
+                        )}
                         <button
                           type="button"
                           onClick={() => removeItem(g.id, it.id)}
@@ -206,14 +247,24 @@ export function ProductOptionsEditor({
                         </button>
                       </div>
                     ))}
-                    <button
-                      type="button"
-                      onClick={() => addItem(g.id)}
-                      className="text-[11px] text-primary hover:underline flex items-center gap-1"
-                      data-testid={`add-item-${g.id}`}
-                    >
-                      <Plus size={11} /> أضف خيار
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => addItem(g.id, "full")}
+                        className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                        data-testid={`add-full-${g.id}`}
+                      >
+                        <Plus size={11} /> أضف خيار بسعر كامل
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addItem(g.id, "delta")}
+                        className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                        data-testid={`add-delta-${g.id}`}
+                      >
+                        <Plus size={11} /> أضف إضافة (+سعر)
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
