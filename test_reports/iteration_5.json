@@ -1,0 +1,34 @@
+{
+  "summary": "Backend-only validation of (A) brute-force lockout fix and (B) Product Variants / Option Groups feature. All 12 pytest tests passed against http://localhost:8001.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth_and_options.py",
+    "/app/test_reports/pytest/pytest_options_auth.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "auth.ts clearLoginFailuresForEmail: the final OR predicate is appended via .where(and(..., or(...))) but the inner conditions already include eq(userName,email) — the or() effectively widens cleanup to any failure from the same IP. That's the documented intent (clears typo-on-same-IP siblings) but it means: if user A logs in successfully, user B's pending failures from the same IP are also marked resolved. This makes the per-(email+ip) lock leakier than the comment claims. Not a security bug because the 50-failure IP-only ceiling still applies, but worth documenting.",
+    "orders.ts (line 258): cast `(req as Request & { user?: ... }).user?.userId` references `userId` but the JWT payload field is `sub` (string). This means cashier_id is always recorded as null in discount_logs. Pre-existing — unrelated to this iteration, but should be fixed.",
+    "products.ts parseOptionGroups silently drops unknown fields and never deduplicates option-item ids within a group. Duplicate ids would cause Map lookups in orders.ts to pick the first match. Consider rejecting duplicate ids.",
+    "Inconsistent tax model: POST /api/orders treats 15% as INCLUSIVE (total = subtotal-discount, tax = total*15/115), but POST /api/public/orders treats 15% as EXCLUSIVE (tax = subtotal*0.15, total = subtotal+tax). Same product on the two paths shows different totals. Confirmed via passing tests — but it's a real inconsistency.",
+    "orders.ts type-asserts `RawItem = { productId: number; ... }` directly from req.body without rechecking length parity vs parsed.data.items. If a malicious client posts a longer items array, rawItems can carry stray entries; minor since they're only matched by index."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth_and_options.py"
+  ],
+  "success_rate": { "backend": "100% (12/12)", "frontend": "n/a (not requested)" },
+  "test_credentials": "demo@foodpro.com / Demo2026! (existing). New ephemeral signups use test_<ts>@example.com / Test12345! with businessType=traditional.",
+  "seed_data_creation": "Each test class creates fresh tenants (ta_*, tb_*) and products (Burger with size+addons option groups, Water for smoke test). No shared state; auto-cleared lockouts between tests.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_auth_and_options.py covers (A) brute-force fix scenarios and (B) product option groups end-to-end. Tip: businessType field on /api/auth/signup requires a slug from RESTAURANT_BUSINESS_TYPES (e.g. 'traditional','cafe','burger'); 'restaurant' is REJECTED. Lockout state must be cleared between auth tests via UPDATE security_events SET resolved=true (autouse fixture handles this). QR-token flow (GET /api/public/qr/:token) was not directly hit — token row creation requires staff setup; however the underlying SELECT explicitly includes productsTable.optionGroups (public.ts:417), and the public/orders path validates the same option-group semantics correctly.",
+  "rca_of_the_issue": "Original bug (A): IP-scoped lockout counted ALL failures from one IP across all emails. After a user logged out and someone else on the same NAT/IP had earlier typo'd, the legitimate user was hit by a 429 they couldn't clear. Fix: PRIMARY lock is now per (email+ip) at threshold 5 (block on 6th), with a much higher IP-only DoS ceiling (50). A successful login resolves all unresolved login_failed rows for that email (and same-IP siblings), so the brute-force counter resets. Verified by test_success_clears_prior_failures (3 fails → 1 success → 3 more fails returns only 401, never 429) and test_lockout_is_per_email_other_email_not_blocked (different email from same IP signs up + logs in fine after the first email is locked)."
+}

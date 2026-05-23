@@ -5,8 +5,6 @@ import { Can } from "@/components/can";
 import {
   useListProducts,
   useListCategories,
-  useCreateProduct,
-  useUpdateProduct,
   useDeleteProduct,
   useToggleProduct,
   useGetProductIngredients,
@@ -24,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
 import type { Product } from "@workspace/api-client-react";
+import { ProductOptionsEditor, type ProductOptionGroup } from "@/components/product-options-editor";
 
 function ProductForm({
   initial,
@@ -31,9 +30,9 @@ function ProductForm({
   onSubmit,
   loading,
 }: {
-  initial?: Partial<Product>;
+  initial?: Partial<Product> & { optionGroups?: ProductOptionGroup[] };
   categories: { id: number; name: string }[];
-  onSubmit: (data: { name: string; price: number; categoryId: number; description?: string; imageUrl?: string | null }) => void;
+  onSubmit: (data: { name: string; price: number; categoryId: number; description?: string; imageUrl?: string | null; optionGroups: ProductOptionGroup[] }) => void;
   loading: boolean;
 }) {
   const { t } = useTranslation();
@@ -45,6 +44,7 @@ function ProductForm({
   const [imageUrl, setImageUrl] = useState<string | null>(initial?.imageUrl ?? null);
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [optionGroups, setOptionGroups] = useState<ProductOptionGroup[]>(initial?.optionGroups ?? []);
 
   const uploadFile = async (file: File) => {
     if (file.size > 4 * 1024 * 1024) { toast({ title: "حجم الصورة أكبر من 4 ميغا", variant: "destructive" }); return; }
@@ -162,6 +162,10 @@ function ProductForm({
         <Label className="text-xs text-muted-foreground">{t("products.form.description")}</Label>
         <Input className="bg-background border-border" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("products.form.descriptionPlaceholder")} data-testid="input-product-description" />
       </div>
+
+      {/* خيارات المنتج (أحجام / إضافات) */}
+      <ProductOptionsEditor groups={optionGroups} onChange={setOptionGroups} />
+
       <button
         data-testid="button-save-product"
         disabled={!name || !price || !categoryId || loading}
@@ -169,6 +173,7 @@ function ProductForm({
           name, price: parseFloat(price), categoryId: parseInt(categoryId),
           description: description || undefined,
           imageUrl: imageUrl ?? undefined,
+          optionGroups,
         })}
         className="w-full h-11 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold text-sm transition-colors disabled:opacity-40"
       >
@@ -308,8 +313,6 @@ export default function ProductsPage() {
 
   const { data: products, isLoading } = useListProducts(selectedCategory ? { categoryId: selectedCategory } : {});
   const { data: categories } = useListCategories();
-  const createProduct = useCreateProduct();
-  const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const toggleProduct = useToggleProduct();
   const queryClient = useQueryClient();
@@ -321,26 +324,58 @@ export default function ProductsPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
 
-  const handleCreate = async (data: { name: string; price: number; categoryId: number; description?: string; imageUrl?: string | null }) => {
+  const [createPending, setCreatePending] = useState(false);
+  const handleCreate = async (data: { name: string; price: number; categoryId: number; description?: string; imageUrl?: string | null; optionGroups: ProductOptionGroup[] }) => {
+    setCreatePending(true);
     try {
-      await createProduct.mutateAsync({ data });
+      const token = localStorage.getItem("foodoro-token");
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? "Create failed");
+      }
       invalidate();
       setCreateOpen(false);
       toast({ title: t("products.toast.created") });
-    } catch {
-      toast({ title: t("products.toast.error"), description: t("products.toast.failedCreate"), variant: "destructive" });
+    } catch (e) {
+      toast({ title: t("products.toast.error"), description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setCreatePending(false);
     }
   };
 
-  const handleUpdate = async (data: { name: string; price: number; categoryId: number; description?: string; imageUrl?: string | null }) => {
+  const [updatePending, setUpdatePending] = useState(false);
+  const handleUpdate = async (data: { name: string; price: number; categoryId: number; description?: string; imageUrl?: string | null; optionGroups: ProductOptionGroup[] }) => {
     if (!editProduct) return;
+    setUpdatePending(true);
     try {
-      await updateProduct.mutateAsync({ id: editProduct.id, data });
+      const token = localStorage.getItem("foodoro-token");
+      const res = await fetch(`/api/products/${editProduct.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? "Update failed");
+      }
       invalidate();
       setEditProduct(null);
       toast({ title: t("products.toast.updated") });
-    } catch {
-      toast({ title: t("products.toast.error"), description: t("products.toast.failedUpdate"), variant: "destructive" });
+    } catch (e) {
+      toast({ title: t("products.toast.error"), description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setUpdatePending(false);
     }
   };
 
@@ -490,7 +525,7 @@ export default function ProductsPage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="bg-card border-border text-foreground max-w-sm">
           <DialogHeader><DialogTitle>{t("products.addProduct")}</DialogTitle></DialogHeader>
-          <ProductForm categories={categories ?? []} onSubmit={handleCreate} loading={createProduct.isPending} />
+          <ProductForm categories={categories ?? []} onSubmit={handleCreate} loading={createPending} />
         </DialogContent>
       </Dialog>
 
@@ -499,7 +534,7 @@ export default function ProductsPage() {
           <DialogHeader><DialogTitle>{t("products.edit")}</DialogTitle></DialogHeader>
           {editProduct && (
             <div className="space-y-5">
-              <ProductForm initial={editProduct} categories={categories ?? []} onSubmit={handleUpdate} loading={updateProduct.isPending} />
+              <ProductForm initial={editProduct} categories={categories ?? []} onSubmit={handleUpdate} loading={updatePending} />
               <div className="border-t border-border pt-4">
                 <RecipeEditor productId={editProduct.id} />
               </div>

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean, numeric, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, numeric, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { tenantsTable } from "./tenants";
@@ -18,9 +18,29 @@ export const productsTable = pgTable("products", {
   kitchenAvailable: boolean("kitchen_available").notNull().default(true),
   unavailabilityReason: text("unavailability_reason"),
   unavailableUntil: timestamp("unavailable_until", { withTimezone: true }),
+  optionGroups: jsonb("option_groups").$type<ProductOptionGroup[]>().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
+
+// Product option group — e.g. "Size", "Toppings". Stored as JSON on products row.
+export interface ProductOptionItem {
+  id: string;                  // stable identifier (uuid or slug)
+  name: string;                // displayed label
+  nameEn?: string;             // english label (optional)
+  priceDelta: number;          // amount added to base price when selected
+  isDefault?: boolean;         // pre-selected on POS open
+}
+
+export interface ProductOptionGroup {
+  id: string;
+  name: string;                // e.g. "الحجم"
+  nameEn?: string;             // e.g. "Size"
+  required: boolean;           // at least one choice must be picked
+  multiSelect: boolean;        // false = single radio, true = multi-select
+  maxSelect?: number;          // upper bound when multiSelect = true
+  items: ProductOptionItem[];
+}
 
 export const insertProductSchema = createInsertSchema(productsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertProduct = z.infer<typeof insertProductSchema>;

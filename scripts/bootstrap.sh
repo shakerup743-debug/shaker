@@ -90,6 +90,11 @@ DATABASE_URL="postgresql://foodoro:foodoro123@localhost:5432/foodoro_db" pnpm ru
 
 # Apply any extra tables that aren't in the drizzle schema yet
 PGPASSWORD=foodoro123 psql -U foodoro -h localhost -d foodoro_db <<'SQL'
+-- Product options (variants / add-ons) ----------------------------------
+ALTER TABLE products       ADD COLUMN IF NOT EXISTS option_groups    JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE order_items    ADD COLUMN IF NOT EXISTS selected_options JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE order_items    ADD COLUMN IF NOT EXISTS base_unit_price  NUMERIC(10, 2);
+
 CREATE TABLE IF NOT EXISTS subscriptions (
   id SERIAL PRIMARY KEY,
   tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

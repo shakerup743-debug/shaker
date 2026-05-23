@@ -19,6 +19,50 @@ const router: IRouter = Router();
 
 router.use(requireTenant);
 
+// ── Option group validation (variants / add-ons) ───────────────────────────
+interface RawOptionItem { id?: unknown; name?: unknown; nameEn?: unknown; priceDelta?: unknown; isDefault?: unknown }
+interface RawOptionGroup { id?: unknown; name?: unknown; nameEn?: unknown; required?: unknown; multiSelect?: unknown; maxSelect?: unknown; items?: unknown }
+
+function parseOptionGroups(input: unknown): unknown[] | undefined {
+  if (input === undefined) return undefined;
+  if (input === null) return [];
+  if (!Array.isArray(input)) throw new Error("optionGroups must be an array");
+  if (input.length > 20) throw new Error("optionGroups: too many groups (max 20)");
+
+  return input.map((g: RawOptionGroup, gi) => {
+    if (!g || typeof g !== "object") throw new Error(`optionGroups[${gi}] must be an object`);
+    if (typeof g.id   !== "string" || !g.id.trim())   throw new Error(`optionGroups[${gi}].id required`);
+    if (typeof g.name !== "string" || !g.name.trim()) throw new Error(`optionGroups[${gi}].name required`);
+    if (!Array.isArray(g.items) || g.items.length === 0) throw new Error(`optionGroups[${gi}].items must be non-empty array`);
+    if (g.items.length > 50) throw new Error(`optionGroups[${gi}].items too long (max 50)`);
+
+    const items = (g.items as RawOptionItem[]).map((it, ii) => {
+      if (!it || typeof it !== "object") throw new Error(`optionGroups[${gi}].items[${ii}] must be an object`);
+      if (typeof it.id   !== "string" || !it.id.trim())   throw new Error(`optionGroups[${gi}].items[${ii}].id required`);
+      if (typeof it.name !== "string" || !it.name.trim()) throw new Error(`optionGroups[${gi}].items[${ii}].name required`);
+      const delta = Number(it.priceDelta);
+      if (!Number.isFinite(delta)) throw new Error(`optionGroups[${gi}].items[${ii}].priceDelta must be a number`);
+      return {
+        id: it.id.trim(),
+        name: it.name.trim().slice(0, 80),
+        ...(typeof it.nameEn === "string" ? { nameEn: it.nameEn.trim().slice(0, 80) } : {}),
+        priceDelta: Math.round(delta * 100) / 100,
+        ...(it.isDefault === true ? { isDefault: true } : {}),
+      };
+    });
+
+    return {
+      id: g.id.trim(),
+      name: g.name.trim().slice(0, 80),
+      ...(typeof g.nameEn === "string" ? { nameEn: g.nameEn.trim().slice(0, 80) } : {}),
+      required: g.required === true,
+      multiSelect: g.multiSelect === true,
+      ...(typeof g.maxSelect === "number" && g.maxSelect > 0 ? { maxSelect: Math.floor(g.maxSelect) } : {}),
+      items,
+    };
+  });
+}
+
 type TenantDb = NonNullable<Express.Request["db"]>;
 
 async function getProductsWithCategory(dbx: TenantDb, tenantId: number, categoryId?: number, active?: boolean) {
@@ -71,9 +115,17 @@ router.get("/products", async (req, res): Promise<void> => {
 router.post("/products", async (req, res): Promise<void> => {
   const parsed = CreateProductBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  let optionGroups: ReturnType<typeof parseOptionGroups>;
+  try { optionGroups = parseOptionGroups((req.body as Record<string, unknown>).optionGroups); }
+  catch (e) { res.status(400).json({ error: (e as Error).message }); return; }
   const [product] = await req.db!
     .insert(productsTable)
-    .values({ ...parsed.data, price: String(parsed.data.price), tenantId: req.tenantId! })
+    .values({
+      ...parsed.data,
+      price: String(parsed.data.price),
+      tenantId: req.tenantId!,
+      ...(optionGroups !== undefined ? { optionGroups } : {}),
+    })
     .returning();
   const categories = await req.db!
     .select()
@@ -99,8 +151,12 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const parsed = UpdateProductBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  let optionGroups: ReturnType<typeof parseOptionGroups>;
+  try { optionGroups = parseOptionGroups((req.body as Record<string, unknown>).optionGroups); }
+  catch (e) { res.status(400).json({ error: (e as Error).message }); return; }
   const updateData: Record<string, unknown> = { ...parsed.data };
   if (parsed.data.price !== undefined) updateData.price = String(parsed.data.price);
+  if (optionGroups !== undefined) updateData.optionGroups = optionGroups;
   const [product] = await req.db!
     .update(productsTable)
     .set(updateData)

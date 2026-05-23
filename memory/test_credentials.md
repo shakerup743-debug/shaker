@@ -5,7 +5,13 @@
 - **Password**: `Demo2026!`
 - **Restaurant**: FoodPro Demo
 - **Plan**: Enterprise / Active (1-year)
-- **URL**: https://d40ff25a-6729-4cca-ab4c-05bad06cdee1.preview.emergentagent.com
+
+## Brute-force protection (auth)
+- Block triggers at **6+ failed attempts** for the SAME (email + IP) combo within 15 min.
+- A wider DoS guard fires at **50+ failures** for one IP across any email.
+- Failures are cleared on a successful login for that email.
+- Reset stuck state with:
+  `psql "$DATABASE_URL" -c "UPDATE security_events SET resolved=true WHERE type='login_failed' AND resolved=false;"`
 
 ## Database
 - postgresql://foodoro:foodoro123@localhost:5432/foodoro_db

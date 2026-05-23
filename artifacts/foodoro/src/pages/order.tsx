@@ -8,15 +8,19 @@ import {
 import { useTranslation } from "react-i18next";
 import "@/i18n";
 import { OrderAttachmentInput } from "@/components/order-attachment-input";
+import { ProductOptionsPicker, type ResolvedSelection } from "@/components/product-options-picker";
+import type { ProductOptionGroup } from "@/components/product-options-editor";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface CartItem {
+  lineId: string;
   productId: number;
   name: string;
   price: number;
   quantity: number;
   note?: string;
+  selectedOptions?: ResolvedSelection[];
 }
 
 interface MenuItem {
@@ -31,6 +35,7 @@ interface MenuItem {
   imageUrl: string | null;
   kitchenAvailable?: boolean;
   unavailabilityReason?: string | null;
+  optionGroups?: ProductOptionGroup[];
 }
 
 interface QrContext {
@@ -75,7 +80,14 @@ async function submitGuestOrder(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       tableNumber,
-      items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, notes: i.note?.trim() || undefined })),
+      items: items.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        notes: i.note?.trim() || undefined,
+        ...(i.selectedOptions && i.selectedOptions.length > 0
+          ? { selectedOptions: i.selectedOptions.map((s) => ({ groupId: s.groupId, itemId: s.itemId })) }
+          : {}),
+      })),
       notes: notes || undefined,
       generalNote: notes || undefined,
       customerName: customer.name.trim(),
@@ -163,6 +175,7 @@ export default function OrderPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
+  const [optionPickerProduct, setOptionPickerProduct] = useState<MenuItem | null>(null);
 
   const categories = Array.from(
     new Map(
@@ -175,19 +188,40 @@ export default function OrderPage() {
   const filtered = activeCategory == null ? menu : menu.filter((p) => p.categoryId === activeCategory);
 
   const addToCart = useCallback((product: MenuItem) => {
+    if (product.optionGroups && product.optionGroups.length > 0) {
+      setOptionPickerProduct(product);
+      return;
+    }
     setCart((prev) => {
-      const existing = prev.find((c) => c.productId === product.id);
-      if (existing) return prev.map((c) => c.productId === product.id ? { ...c, quantity: c.quantity + 1 } : c);
-      return [...prev, { productId: product.id, name: product.name, price: product.price, quantity: 1 }];
+      const existing = prev.find((c) => c.productId === product.id && (!c.selectedOptions || c.selectedOptions.length === 0));
+      if (existing) return prev.map((c) => c.lineId === existing.lineId ? { ...c, quantity: c.quantity + 1 } : c);
+      return [...prev, { lineId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, productId: product.id, name: product.name, price: product.price, quantity: 1 }];
     });
   }, []);
 
-  const updateQty = useCallback((productId: number, delta: number) => {
-    setCart((prev) => prev.map((c) => c.productId === productId ? { ...c, quantity: c.quantity + delta } : c).filter((c) => c.quantity > 0));
+  const addLineToCart = useCallback((product: MenuItem, finalUnitPrice: number, selections: ResolvedSelection[]) => {
+    setCart((prev) => {
+      const sig = selections.map((s) => `${s.groupId}:${s.itemId}`).sort().join("|");
+      const existing = prev.find((c) =>
+        c.productId === product.id &&
+        (c.selectedOptions ?? []).map((s) => `${s.groupId}:${s.itemId}`).sort().join("|") === sig
+      );
+      if (existing) return prev.map((c) => c.lineId === existing.lineId ? { ...c, quantity: c.quantity + 1 } : c);
+      return [...prev, {
+        lineId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
+        productId: product.id, name: product.name,
+        price: finalUnitPrice, quantity: 1,
+        selectedOptions: selections,
+      }];
+    });
   }, []);
 
-  const removeItem = useCallback((productId: number) => {
-    setCart((prev) => prev.filter((c) => c.productId !== productId));
+  const updateQty = useCallback((lineId: string, delta: number) => {
+    setCart((prev) => prev.map((c) => c.lineId === lineId ? { ...c, quantity: c.quantity + delta } : c).filter((c) => c.quantity > 0));
+  }, []);
+
+  const removeItem = useCallback((lineId: string) => {
+    setCart((prev) => prev.filter((c) => c.lineId !== lineId));
   }, []);
 
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0);
@@ -419,19 +453,24 @@ export default function OrderPage() {
                   <p className="text-gray-500 text-sm text-center py-8">{tx("noItems")}</p>
                 ) : (
                   cart.map((item) => (
-                    <div key={item.productId} className="py-2 border-b border-white/5 space-y-2">
+                    <div key={item.lineId} className="py-2 border-b border-white/5 space-y-2">
                       <div className="flex items-center gap-3">
                         <div className="flex-1 min-w-0">
                           <p className="text-white text-sm font-medium truncate">{item.name}</p>
                           <p className="text-gray-400 text-xs">{item.price.toFixed(2)} {isAr ? "ر.س" : currency} × {item.quantity}</p>
+                          {item.selectedOptions && item.selectedOptions.length > 0 && (
+                            <p className="text-[10px] text-[#E67E22]/90 mt-0.5 truncate" data-testid={`qr-cart-options-${item.lineId}`}>
+                              {item.selectedOptions.map((s) => s.itemName).join(" • ")}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="flex items-center gap-1 bg-[#111827] rounded-xl px-2 py-1">
-                            <button onClick={() => updateQty(item.productId, -1)} className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-white"><Minus size={11} /></button>
+                            <button onClick={() => updateQty(item.lineId, -1)} className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-white"><Minus size={11} /></button>
                             <span className="text-white text-sm font-semibold w-5 text-center">{item.quantity}</span>
-                            <button onClick={() => updateQty(item.productId, 1)} className="w-6 h-6 flex items-center justify-center text-[#E67E22] hover:text-[#d4701e]"><Plus size={11} /></button>
+                            <button onClick={() => updateQty(item.lineId, 1)} className="w-6 h-6 flex items-center justify-center text-[#E67E22] hover:text-[#d4701e]"><Plus size={11} /></button>
                           </div>
-                          <button onClick={() => removeItem(item.productId)} className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-red-400"><Trash2 size={13} /></button>
+                          <button onClick={() => removeItem(item.lineId)} className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-red-400"><Trash2 size={13} /></button>
                         </div>
                       </div>
                       <input
@@ -439,12 +478,12 @@ export default function OrderPage() {
                         value={item.note ?? ""}
                         onChange={(e) => {
                           const v = e.target.value;
-                          setCart((prev) => prev.map((c) => c.productId === item.productId ? { ...c, note: v } : c));
+                          setCart((prev) => prev.map((c) => c.lineId === item.lineId ? { ...c, note: v } : c));
                         }}
                         placeholder={isAr ? "ملاحظات على هذا الصنف (اختياري)" : "Notes on this item (optional)"}
                         maxLength={200}
                         className="w-full bg-[#111827]/70 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 border border-white/5 focus:outline-none focus:border-[#E67E22]/40"
-                        data-testid={`qr-item-note-${item.productId}`}
+                        data-testid={`qr-item-note-${item.lineId}`}
                       />
                     </div>
                   ))
@@ -517,6 +556,22 @@ export default function OrderPage() {
           </>
         )}
       </AnimatePresence>
+
+      {/* Customer product-options picker */}
+      {optionPickerProduct && (
+        <ProductOptionsPicker
+          open={true}
+          productName={optionPickerProduct.name}
+          basePrice={optionPickerProduct.price}
+          currency={isAr ? "ر.س" : currency}
+          optionGroups={optionPickerProduct.optionGroups ?? []}
+          onCancel={() => setOptionPickerProduct(null)}
+          onConfirm={(sels, finalPrice) => {
+            addLineToCart(optionPickerProduct, finalPrice, sels);
+            setOptionPickerProduct(null);
+          }}
+        />
+      )}
     </div>
   );
 }

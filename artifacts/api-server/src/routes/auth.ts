@@ -3,7 +3,7 @@ import { createHash } from "crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
 import { usersTable, userSessionsTable, securityEventsTable } from "@workspace/db";
-import { eq, and, gte, count } from "drizzle-orm";
+import { eq, and, gte, count, or } from "drizzle-orm";
 import { signToken } from "../lib/jwt.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { logAudit } from "../lib/audit.js";
@@ -91,10 +91,37 @@ async function recordSecurityEvent(opts: {
   });
 }
 
-// Count login_failed security events for an IP in last 15 minutes
-// This is the authoritative source for brute-force detection
-async function countLoginFailures(ip: string): Promise<number> {
-  const since = new Date(Date.now() - 15 * 60 * 1000);
+// Brute-force thresholds
+//   PRIMARY  : per (email + ip) → blocks a specific attacker hammering one account
+//   SECONDARY: per ip alone     → DoS defense against IP-wide credential stuffing
+// Both must stay unresolved within the 15-min window to count.
+const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
+const EMAIL_IP_FAIL_THRESHOLD = 5;   // block on the 6th attempt for this email+ip combo
+const IP_ONLY_FAIL_THRESHOLD  = 50;  // block when a single IP has 50 failures across ANY emails
+
+// Count UNRESOLVED login_failed events scoped to (email, ip) within window.
+// Resolved=true events are excluded so a prior successful login clears the lock.
+async function countLoginFailuresByEmailAndIp(email: string, ip: string): Promise<number> {
+  const since = new Date(Date.now() - LOCKOUT_WINDOW_MS);
+  const [row] = await db
+    .select({ cnt: count() })
+    .from(securityEventsTable)
+    .where(
+      and(
+        eq(securityEventsTable.ipAddress, ip),
+        eq(securityEventsTable.userName, email),
+        eq(securityEventsTable.type, "login_failed"),
+        eq(securityEventsTable.resolved, false),
+        gte(securityEventsTable.createdAt, since),
+      ),
+    );
+  return Number(row?.cnt ?? 0);
+}
+
+// Count UNRESOLVED login_failed events for a single IP across ANY emails within window.
+// Acts as a DoS / credential-stuffing layer at a much higher threshold.
+async function countLoginFailuresByIp(ip: string): Promise<number> {
+  const since = new Date(Date.now() - LOCKOUT_WINDOW_MS);
   const [row] = await db
     .select({ cnt: count() })
     .from(securityEventsTable)
@@ -102,26 +129,53 @@ async function countLoginFailures(ip: string): Promise<number> {
       and(
         eq(securityEventsTable.ipAddress, ip),
         eq(securityEventsTable.type, "login_failed"),
+        eq(securityEventsTable.resolved, false),
         gte(securityEventsTable.createdAt, since),
       ),
     );
   return Number(row?.cnt ?? 0);
 }
 
-// Check if a brute_force event was already emitted for this IP in the current window
-// Prevents flooding the event log with duplicate brute_force events
-async function hasBruteForceEventInWindow(ip: string): Promise<boolean> {
-  const since = new Date(Date.now() - 15 * 60 * 1000);
+// Resolve previous login_failed events for this email so they no longer count
+// toward future lockouts. Called on every successful login (including MFA pass).
+async function clearLoginFailuresForEmail(email: string, ip: string | null): Promise<void> {
+  const since = new Date(Date.now() - LOCKOUT_WINDOW_MS);
+  await db
+    .update(securityEventsTable)
+    .set({ resolved: true })
+    .where(
+      and(
+        eq(securityEventsTable.userName, email),
+        eq(securityEventsTable.type, "login_failed"),
+        eq(securityEventsTable.resolved, false),
+        gte(securityEventsTable.createdAt, since),
+        // Also clear failures from the same IP across different emails (typo cases)
+        ip ? or(eq(securityEventsTable.ipAddress, ip), eq(securityEventsTable.userName, email))
+           : eq(securityEventsTable.userName, email),
+      ),
+    );
+}
+
+// Check if a brute_force event was already emitted in the current window for this scope.
+// Prevents flooding the event log with duplicate brute_force events.
+async function hasBruteForceEventInWindow(opts: {
+  ip: string;
+  email?: string;
+  scope: "email_ip" | "ip_only";
+}): Promise<boolean> {
+  const since = new Date(Date.now() - LOCKOUT_WINDOW_MS);
+  const conds = [
+    eq(securityEventsTable.ipAddress, opts.ip),
+    eq(securityEventsTable.type, "brute_force"),
+    gte(securityEventsTable.createdAt, since),
+  ];
+  if (opts.scope === "email_ip" && opts.email) {
+    conds.push(eq(securityEventsTable.userName, opts.email));
+  }
   const [row] = await db
     .select({ cnt: count() })
     .from(securityEventsTable)
-    .where(
-      and(
-        eq(securityEventsTable.ipAddress, ip),
-        eq(securityEventsTable.type, "brute_force"),
-        gte(securityEventsTable.createdAt, since),
-      ),
-    );
+    .where(and(...conds));
   return Number(row?.cnt ?? 0) > 0;
 }
 
@@ -142,45 +196,67 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  // Brute-force check — every blocked attempt still records a session row
-  // Threshold is based on login_failed security_events (not user_sessions)
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // ── Brute-force gate ──────────────────────────────────────────────────────
+  // Block at 6+ failed attempts for THIS email from THIS ip (primary lock).
+  // Also block at 50+ failures from this ip across ANY email (DoS layer).
+  // Failures cleared on the next successful login for that email, so legitimate
+  // users on shared IPs never get permanently locked out by other users' typos.
   if (ip) {
-    const failCount = await countLoginFailures(ip);
-    // Block on the 5th attempt: 4 recorded failures in window means this is #5
-    if (failCount >= 4) {
-      // Always record the session for this blocked attempt
+    const [emailIpFails, ipFails] = await Promise.all([
+      countLoginFailuresByEmailAndIp(normalizedEmail, ip),
+      countLoginFailuresByIp(ip),
+    ]);
+
+    const emailIpBlocked = emailIpFails >= EMAIL_IP_FAIL_THRESHOLD;
+    const ipBlocked      = ipFails      >= IP_ONLY_FAIL_THRESHOLD;
+
+    if (emailIpBlocked || ipBlocked) {
+      const scope: "email_ip" | "ip_only" = emailIpBlocked ? "email_ip" : "ip_only";
+
       void recordSession({
         tenantId: null,
         userId: 0,
-        userName: email,
+        userName: normalizedEmail,
         userRole: "unknown",
         ip,
         ua,
         isSuccess: false,
         mfaVerified: false,
       });
-      // Record login_failed event for the blocked attempt
       void recordSecurityEvent({
         tenantId: null,
         type: "login_failed",
         ip,
-        userName: email,
+        userName: normalizedEmail,
         severity: "low",
-        metadata: { reason: "brute_force_blocked", email },
+        metadata: { reason: "brute_force_blocked", email: normalizedEmail, scope },
       });
-      // Emit brute_force event at most once per 15-min window (idempotent)
-      const alreadyEmitted = await hasBruteForceEventInWindow(ip);
+
+      const alreadyEmitted = await hasBruteForceEventInWindow({ ip, email: normalizedEmail, scope });
       if (!alreadyEmitted) {
         void recordSecurityEvent({
           tenantId: null,
           type: "brute_force",
           ip,
+          userName: normalizedEmail,
           severity: "high",
-          metadata: { failuresInWindow: failCount, email },
+          metadata: {
+            scope,
+            emailIpFailures: emailIpFails,
+            ipFailures: ipFails,
+            email: normalizedEmail,
+          },
         });
       }
+
       res.status(429).set("Retry-After", "900").json({
-        error: "Too many failed login attempts. Try again in 15 minutes.",
+        error:
+          scope === "email_ip"
+            ? "Too many failed attempts for this account. Try again in 15 minutes or reset your password."
+            : "Too many failed login attempts from your network. Try again in 15 minutes.",
+        scope,
       });
       return;
     }
@@ -189,14 +265,14 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   const [user] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.email, email.toLowerCase().trim()));
+    .where(eq(usersTable.email, normalizedEmail));
 
   if (!user || !user.isActive) {
     // Record failure
     void recordSession({
       tenantId: null,
       userId: user?.id ?? 0,
-      userName: email,
+      userName: normalizedEmail,
       userRole: "unknown",
       ip,
       ua,
@@ -208,9 +284,9 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       type: "login_failed",
       ip,
       userId: user?.id ?? null,
-      userName: email,
+      userName: normalizedEmail,
       severity: "low",
-      metadata: { reason: "user_not_found_or_inactive", email },
+      metadata: { reason: "user_not_found_or_inactive", email: normalizedEmail },
     });
     res.status(401).json({ error: "Invalid credentials" });
     return;
@@ -233,9 +309,9 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       type: "login_failed",
       ip,
       userId: user.id,
-      userName: user.name,
+      userName: normalizedEmail,
       severity: "low",
-      metadata: { reason: "wrong_password", email },
+      metadata: { reason: "wrong_password", email: normalizedEmail },
     });
     res.status(401).json({ error: "Invalid credentials" });
     return;
@@ -326,6 +402,9 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     }
     mfaVerified = true;
   }
+
+  // Clear previous failures for this email+ip so the brute-force counter resets
+  void clearLoginFailuresForEmail(user.email, ip);
 
   // Record success session first to get session id
   const sessionId = await recordSession({

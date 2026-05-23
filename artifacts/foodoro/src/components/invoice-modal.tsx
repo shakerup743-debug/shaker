@@ -8,6 +8,7 @@ interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   itemNote?: string;
+  selectedOptions?: Array<{ groupName: string; itemName: string; priceDelta: number }>;
 }
 
 export interface InvoiceData {
@@ -243,6 +244,13 @@ ${content.innerHTML}
                   <span style={{ width: 32, textAlign: "center" }}>{item.quantity}</span>
                   <span style={{ width: 72, textAlign: isAr ? "left" : "right" }}>{fmt(item.unitPrice * item.quantity)}</span>
                 </div>
+                {item.selectedOptions && item.selectedOptions.length > 0 && (
+                  <div className="note-item" style={{ color: "#666" }}>
+                    {item.selectedOptions.map((s, k) => (
+                      <span key={k}>↳ {s.groupName}: {s.itemName}{s.priceDelta ? ` (+${fmt(s.priceDelta)})` : ""}{k < item.selectedOptions!.length - 1 ? " · " : ""}</span>
+                    ))}
+                  </div>
+                )}
                 {item.itemNote && <div className="note-item">↳ {item.itemNote}</div>}
               </div>
             ))}

@@ -29,13 +29,19 @@ import { useSse } from "@/hooks/use-sse";
 import { calcOrderTotals } from "@/lib/pricing";
 import { useCurrency } from "@/contexts/currency";
 import { useOfflinePos } from "@/hooks/use-offline-pos";
+import { ProductOptionsPicker, type ResolvedSelection } from "@/components/product-options-picker";
+import type { ProductOptionGroup } from "@/components/product-options-editor";
 
 interface CartItem {
+  /** Unique line id — same product can appear multiple times with different options */
+  lineId: string;
   productId: number;
   name: string;
+  /** Final unit price (base + option deltas) */
   price: number;
   quantity: number;
   itemNote?: string;
+  selectedOptions?: ResolvedSelection[];
 }
 
 interface OrderNotesState {
@@ -76,6 +82,7 @@ export default function PosPage() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "mixed">("cash");
   const [amountPaid, setAmountPaid] = useState("");
+  const [optionPickerProduct, setOptionPickerProduct] = useState<{ id: number; name: string; price: number; optionGroups: ProductOptionGroup[] } | null>(null);
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
   const [notes, setNotes] = useState<OrderNotesState>({
@@ -160,40 +167,47 @@ export default function PosPage() {
     },
   });
 
-  const addToCart = useCallback((product: { id: number; name: string; price: number }) => {
+  const addToCart = useCallback((product: { id: number; name: string; price: number; optionGroups?: ProductOptionGroup[] }) => {
+    // If the product has any options, defer to the picker modal — addLineToCart() will be called after the user confirms.
+    if (product.optionGroups && product.optionGroups.length > 0) {
+      setOptionPickerProduct({ id: product.id, name: product.name, price: product.price, optionGroups: product.optionGroups });
+      return;
+    }
     setCart((prev) => {
-      const existing = prev.find((i) => i.productId === product.id);
-      if (existing) return prev.map((i) => i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { productId: product.id, name: product.name, price: product.price, quantity: 1 }];
+      const existing = prev.find((i) => i.productId === product.id && (!i.selectedOptions || i.selectedOptions.length === 0));
+      if (existing) return prev.map((i) => i.lineId === existing.lineId ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { lineId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, productId: product.id, name: product.name, price: product.price, quantity: 1 }];
     });
   }, []);
 
-  const updateQty = (productId: number, delta: number) => {
+  const addLineToCart = useCallback((product: { id: number; name: string }, finalUnitPrice: number, selections: ResolvedSelection[]) => {
+    // Same product + identical option set → bump qty. Otherwise → new line.
+    setCart((prev) => {
+      const sig = selections.map((s) => `${s.groupId}:${s.itemId}`).sort().join("|");
+      const existing = prev.find((i) =>
+        i.productId === product.id &&
+        (i.selectedOptions ?? []).map((s) => `${s.groupId}:${s.itemId}`).sort().join("|") === sig
+      );
+      if (existing) return prev.map((i) => i.lineId === existing.lineId ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, {
+        lineId: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
+        productId: product.id, name: product.name,
+        price: finalUnitPrice, quantity: 1,
+        selectedOptions: selections,
+      }];
+    });
+  }, []);
+
+  const updateQty = (lineId: string, delta: number) => {
     setCart((prev) =>
       prev
-        .map((i) => i.productId === productId ? { ...i, quantity: i.quantity + delta } : i)
+        .map((i) => i.lineId === lineId ? { ...i, quantity: i.quantity + delta } : i)
         .filter((i) => i.quantity > 0)
     );
-    if (delta < 0) {
-      setNotes((prev) => {
-        const remaining = cart.find((i) => i.productId === productId);
-        if (remaining && remaining.quantity <= 1) {
-          const { [productId]: _n, ...restNotes } = prev.itemNotes;
-          const { [productId]: _e, ...restExpanded } = prev.expandedItems;
-          return { ...prev, itemNotes: restNotes, expandedItems: restExpanded };
-        }
-        return prev;
-      });
-    }
   };
 
-  const removeItem = (productId: number) => {
-    setCart((prev) => prev.filter((i) => i.productId !== productId));
-    setNotes((prev) => {
-      const { [productId]: _n, ...restNotes } = prev.itemNotes;
-      const { [productId]: _e, ...restExpanded } = prev.expandedItems;
-      return { ...prev, itemNotes: restNotes, expandedItems: restExpanded };
-    });
+  const removeItem = (lineId: string) => {
+    setCart((prev) => prev.filter((i) => i.lineId !== lineId));
   };
 
   const rawSubtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -226,6 +240,9 @@ export default function PosPage() {
         productId: i.productId,
         quantity: i.quantity,
         notes: notes.itemNotes[i.productId]?.trim() || undefined,
+        ...(i.selectedOptions && i.selectedOptions.length > 0
+          ? { selectedOptions: i.selectedOptions.map((s) => ({ groupId: s.groupId, itemId: s.itemId })) }
+          : {}),
       })),
       tableNumber: tableNumber || undefined,
       discount: discount || undefined,
@@ -247,6 +264,7 @@ export default function PosPage() {
       quantity: i.quantity,
       unitPrice: i.price,
       itemNote: notes.itemNotes[i.productId]?.trim() || undefined,
+      selectedOptions: i.selectedOptions,
     }));
 
     const resetCart = () => {
@@ -445,7 +463,7 @@ export default function PosPage() {
                     key={product.id}
                     data-testid={`card-product-${product.id}`}
                     variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }}
-                    onClick={() => !unavailable && addToCart({ id: product.id, name: product.name, price: product.price })}
+                    onClick={() => !unavailable && addToCart({ id: product.id, name: product.name, price: product.price, optionGroups: (product as unknown as { optionGroups?: ProductOptionGroup[] }).optionGroups })}
                     disabled={unavailable}
                     className={`relative flex flex-col items-start p-4 rounded-2xl border transition-all duration-150 text-start
                       ${unavailable
@@ -671,7 +689,7 @@ export default function PosPage() {
             ) : (
               cart.map((item) => (
                 <motion.div
-                  key={item.productId}
+                  key={item.lineId}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
@@ -680,6 +698,11 @@ export default function PosPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate text-start">{item.name}</p>
                     <p className="text-xs text-muted-foreground">{format(item.price)}</p>
+                    {item.selectedOptions && item.selectedOptions.length > 0 && (
+                      <p className="text-[10px] text-primary/80 mt-0.5 truncate" data-testid={`cart-options-${item.lineId}`}>
+                        {item.selectedOptions.map((s) => s.itemName).join(" • ")}
+                      </p>
+                    )}
                     {notes.itemNotes[item.productId] && (
                       <p className="text-[10px] text-amber-400 mt-0.5 truncate">
                         📝 {notes.itemNotes[item.productId]}
@@ -688,23 +711,23 @@ export default function PosPage() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
-                      data-testid={`button-decrease-${item.productId}`}
-                      onClick={() => updateQty(item.productId, -1)}
+                      data-testid={`button-decrease-${item.lineId}`}
+                      onClick={() => updateQty(item.lineId, -1)}
                       className="w-6 h-6 rounded-lg bg-secondary text-foreground flex items-center justify-center hover:bg-accent transition-colors"
                     >
                       <Minus size={11} />
                     </button>
-                    <span className="text-sm font-bold w-6 text-center text-foreground" data-testid={`text-quantity-${item.productId}`}>{item.quantity}</span>
+                    <span className="text-sm font-bold w-6 text-center text-foreground" data-testid={`text-quantity-${item.lineId}`}>{item.quantity}</span>
                     <button
-                      data-testid={`button-increase-${item.productId}`}
-                      onClick={() => updateQty(item.productId, 1)}
+                      data-testid={`button-increase-${item.lineId}`}
+                      onClick={() => updateQty(item.lineId, 1)}
                       className="w-6 h-6 rounded-lg bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors"
                     >
                       <Plus size={11} />
                     </button>
                     <button
-                      data-testid={`button-remove-${item.productId}`}
-                      onClick={() => removeItem(item.productId)}
+                      data-testid={`button-remove-${item.lineId}`}
+                      onClick={() => removeItem(item.lineId)}
                       className="w-6 h-6 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors ms-1 opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 size={11} />
@@ -1102,6 +1125,21 @@ export default function PosPage() {
         onClose={() => setAmendOrder(null)}
         onSuccess={() => void queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() })}
       />
+
+      {/* Product options picker — opened when adding a product with options */}
+      {optionPickerProduct && (
+        <ProductOptionsPicker
+          open={true}
+          productName={optionPickerProduct.name}
+          basePrice={optionPickerProduct.price}
+          optionGroups={optionPickerProduct.optionGroups}
+          onCancel={() => setOptionPickerProduct(null)}
+          onConfirm={(sels, finalPrice) => {
+            addLineToCart({ id: optionPickerProduct.id, name: optionPickerProduct.name }, finalPrice, sels);
+            setOptionPickerProduct(null);
+          }}
+        />
+      )}
     </div>
   );
 }

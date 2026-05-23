@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, numeric, integer, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, numeric, integer, index, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { tenantsTable } from "./tenants";
@@ -41,10 +41,21 @@ export const orderItemsTable = pgTable("order_items", {
   productName: text("product_name").notNull(),
   quantity: integer("quantity").notNull(),
   unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
+  baseUnitPrice: numeric("base_unit_price", { precision: 10, scale: 2 }),
   subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
   notes: text("notes"),
   itemNote: text("item_note"),
+  selectedOptions: jsonb("selected_options").$type<SelectedOption[]>().notNull().default([]),
 });
+
+// Snapshot of a chosen option saved inside the order item.
+export interface SelectedOption {
+  groupId: string;
+  groupName: string;
+  itemId: string;
+  itemName: string;
+  priceDelta: number;
+}
 
 export const insertOrderSchema = createInsertSchema(ordersTable).omit({ id: true, createdAt: true });
 export const insertOrderItemSchema = createInsertSchema(orderItemsTable).omit({ id: true });

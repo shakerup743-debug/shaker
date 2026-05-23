@@ -150,19 +150,56 @@ router.post("/public/orders", async (req, res): Promise<void> => {
     let subtotal = 0;
     const itemsToInsert: {
       productId: number; productName: string; quantity: number;
-      unitPrice: string; subtotal: string; notes: string | null;
+      unitPrice: string; baseUnitPrice: string; subtotal: string;
+      notes: string | null;
+      selectedOptions: Array<{ groupId: string; groupName: string; itemId: string; itemName: string; priceDelta: number }>;
     }[] = [];
 
-    for (const item of items) {
+    // Raw items with potential selectedOptions outside the strict zod schema
+    type RawSel = { groupId: string; itemId: string };
+    const rawItems = (req.body as { items?: Array<{ selectedOptions?: RawSel[] }> }).items ?? [];
+
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx]!;
       const product = productMap.get(item.productId);
       if (!product) { res.status(400).json({ error: `Product ${item.productId} not found` }); return; }
       if (!product.isActive || !product.kitchenAvailable) { res.status(400).json({ error: `Product ${product.name} is not available` }); return; }
-      const unitPrice = parseFloat(product.price);
-      const itemSubtotal = unitPrice * item.quantity;
+      const basePrice = parseFloat(product.price);
+
+      // Resolve options server-side using product.optionGroups (anti-tamper)
+      const clientSel = rawItems[idx]?.selectedOptions ?? [];
+      const productGroups = (product.optionGroups ?? []) as Array<{
+        id: string; name: string; required: boolean;
+        items: Array<{ id: string; name: string; priceDelta: number }>;
+      }>;
+      const resolved: Array<{ groupId: string; groupName: string; itemId: string; itemName: string; priceDelta: number }> = [];
+      for (const sel of clientSel) {
+        const group = productGroups.find((g) => g.id === sel.groupId);
+        if (!group) continue;
+        const choice = group.items.find((c) => c.id === sel.itemId);
+        if (!choice) continue;
+        resolved.push({
+          groupId: group.id, groupName: group.name,
+          itemId: choice.id, itemName: choice.name,
+          priceDelta: Number(choice.priceDelta) || 0,
+        });
+      }
+      for (const g of productGroups) {
+        if (g.required && !resolved.some((r) => r.groupId === g.id)) {
+          res.status(400).json({ error: `Option "${g.name}" is required for ${product.name}` });
+          return;
+        }
+      }
+
+      const optionsDelta = resolved.reduce((s, r) => s + r.priceDelta, 0);
+      const unitPrice = Math.round((basePrice + optionsDelta) * 100) / 100;
+      const itemSubtotal = Math.round(unitPrice * item.quantity * 100) / 100;
       subtotal += itemSubtotal;
       itemsToInsert.push({
         productId: item.productId, productName: product.name, quantity: item.quantity,
-        unitPrice: String(unitPrice), subtotal: String(itemSubtotal), notes: item.notes ?? null,
+        unitPrice: String(unitPrice), baseUnitPrice: String(basePrice),
+        subtotal: String(itemSubtotal), notes: item.notes ?? null,
+        selectedOptions: resolved,
       });
     }
 
@@ -377,6 +414,7 @@ router.get("/public/qr/:token", async (req, res): Promise<void> => {
         categoryColor: categoriesTable.color, imageUrl: productsTable.imageUrl,
         kitchenAvailable: productsTable.kitchenAvailable,
         unavailabilityReason: productsTable.unavailabilityReason,
+        optionGroups: productsTable.optionGroups,
       })
       .from(productsTable)
       .leftJoin(categoriesTable, and(eq(productsTable.categoryId, categoriesTable.id), eq(categoriesTable.tenantId, tenantId)))
