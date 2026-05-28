@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import "@/i18n";
 import { CurrencyProvider } from "@/contexts/currency";
 import { AuthProvider, useAuth } from "@/contexts/auth";
+import { ThemeProvider } from "@/contexts/theme";
 import { Layout } from "@/components/layout";
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────
@@ -189,9 +190,7 @@ function AppRoutes() {
 function AppInner() {
   const { i18n } = useTranslation();
 
-  useEffect(() => {
-    document.documentElement.classList.add("dark");
-  }, []);
+  // Theme is now managed by <ThemeProvider> — no hard-coded .dark anymore.
 
   useEffect(() => {
     const dir = i18n.language === "ar" ? "rtl" : "ltr";
@@ -206,14 +205,16 @@ function App() {
   return (
     <WouterRouter base={basePath}>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <CurrencyProvider>
-            <TooltipProvider>
-              <AppInner />
-              <Toaster />
-            </TooltipProvider>
-          </CurrencyProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <CurrencyProvider>
+              <TooltipProvider>
+                <AppInner />
+                <Toaster />
+              </TooltipProvider>
+            </CurrencyProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </WouterRouter>
   );

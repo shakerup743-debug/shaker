@@ -424,6 +424,16 @@
   },
   "settings": {
     "title": "Settings",
+    "appearance": {
+      "title": "Appearance",
+      "subtitle": "Choose your preferred theme — applies instantly and is saved on this device",
+      "dark": "Dark",
+      "light": "Light",
+      "system": "System",
+      "darkDesc": "Default theme for low-light comfort",
+      "lightDesc": "Comfortable in daytime and bright environments",
+      "systemDesc": "Follows your device setting automatically"
+    },
     "categories": {
       "title": "Product Categories",
       "subtitle": "Organize your menu with categories",

@@ -67,7 +67,82 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-:root, .dark {
+:root {
+  --button-outline: rgba(0,0,0, .10);
+  --badge-outline: rgba(0,0,0, .05);
+
+  --opaque-button-border-intensity: -6;
+
+  --elevate-1: rgba(0,0,0, .04);
+  --elevate-2: rgba(0,0,0, .08);
+
+  /* Light theme — preserves FOODPRO orange identity with airy surfaces */
+  --background: 220 30% 98%;          /* near-white with a hint of blue */
+  --foreground: 222 47% 11%;          /* slate-900 */
+
+  --border: 220 14% 88%;              /* slate-200 */
+
+  --card: 0 0% 100%;                  /* pure white cards over the canvas */
+  --card-foreground: 222 47% 11%;
+  --card-border: 220 14% 90%;
+
+  --sidebar: 220 30% 96%;             /* slightly cooler than background */
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-border: 220 14% 88%;
+  --sidebar-primary: 28 80% 52%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 14% 92%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-ring: 28 80% 52%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --popover-border: 220 14% 88%;
+
+  --primary: 28 80% 52%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 14% 96%;           /* very light slate */
+  --secondary-foreground: 222 47% 11%;
+
+  --muted: 220 14% 94%;
+  --muted-foreground: 220 9% 46%;     /* slate-500 */
+
+  --accent: 220 14% 94%;
+  --accent-foreground: 222 47% 11%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --input: 220 14% 90%;
+  --ring: 28 80% 52%;
+
+  --chart-1: 28 80% 52%;
+  --chart-2: 160 84% 39%;
+  --chart-3: 38 92% 50%;
+  --chart-4: 217 91% 60%;
+  --chart-5: 348 83% 60%;
+
+  --app-font-sans: 'Inter', sans-serif;
+  --app-font-serif: Georgia, serif;
+  --app-font-mono: Menlo, monospace;
+  --radius: 18px;
+
+  --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.04);
+  --shadow-xs:  0px 2px 0px 0px hsl(0 0% 0% / 0.04);
+  --shadow-sm:  0px 2px 0px 0px hsl(0 0% 0% / 0.04), 0px 1px 2px -1px hsl(0 0% 0% / 0.06);
+  --shadow:     0px 2px 0px 0px hsl(0 0% 0% / 0.04), 0px 1px 2px -1px hsl(0 0% 0% / 0.06);
+  --shadow-md:  0px 2px 0px 0px hsl(0 0% 0% / 0.04), 0px 2px 4px -1px hsl(0 0% 0% / 0.06);
+  --shadow-lg:  0px 2px 0px 0px hsl(0 0% 0% / 0.04), 0px 4px 6px -1px hsl(0 0% 0% / 0.08);
+  --shadow-xl:  0px 2px 0px 0px hsl(0 0% 0% / 0.04), 0px 8px 16px -2px hsl(0 0% 0% / 0.12);
+  --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.04);
+
+  /* Scrollbar colors per theme */
+  --scrollbar-thumb: 220 14% 75%;
+  --scrollbar-thumb-hover: 220 14% 60%;
+}
+
+.dark {
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
 
@@ -80,15 +155,15 @@
   --background: 221 39% 11%;
   /* Foreground #F9FAFB */
   --foreground: 210 40% 98%;
-  
+
   /* Border #374151 */
   --border: 217 19% 27%;
-  
+
   /* Card #1F2937 */
   --card: 215 28% 17%;
   --card-foreground: 210 40% 98%;
   --card-border: 217 19% 27%;
-  
+
   /* Sidebar uses card color */
   --sidebar: 215 28% 17%;
   --sidebar-foreground: 210 40% 98%;
@@ -145,6 +220,13 @@
   --shadow-xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.1), 0px 8px 10px -1px hsl(0 0% 0% / 0.1);
   --shadow-2xl: 0px 2px 0px 0px hsl(0 0% 0% / 0.1);
 
+  /* Dark scrollbar colors */
+  --scrollbar-thumb: 0 0% 100% / 0.15;
+  --scrollbar-thumb-hover: 0 0% 100% / 0.28;
+}
+
+/* Shared border tokens — apply to both themes */
+:root, .dark {
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-accent-border: hsl(var(--sidebar-accent));
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
@@ -232,10 +314,53 @@
   }
 }
 
-/* Hide scrollbars everywhere — keep scrolling functional */
+/* ─── Premium thin scrollbars — theme-aware, fade-on-hover ─────────────── */
 * {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--scrollbar-thumb)) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--scrollbar-thumb));
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 200ms ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--scrollbar-thumb-hover));
+  background-clip: padding-box;
+}
+
+/* Hide scrollbar arrows */
+*::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Smooth scrolling everywhere */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Prevent layout shift on body when scrollbar appears */
+html, body {
+  overflow-x: hidden;
+}
+
+/* Utility: hide scrollbars entirely (opt-in via class) */
+.scrollbar-none {
   scrollbar-width: none;
 }
-*::-webkit-scrollbar {
+.scrollbar-none::-webkit-scrollbar {
   display: none;
 }

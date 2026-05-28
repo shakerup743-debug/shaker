@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Settings, Plus, Pencil, Trash2, Check, QrCode, Download, Smartphone, ClipboardList, Eye, EyeOff } from "lucide-react";
+import { Settings, Plus, Pencil, Trash2, Check, QrCode, Download, Smartphone, ClipboardList, Eye, EyeOff, Sun, Moon, Monitor } from "lucide-react";
 import { useUser, useAuth } from "@/lib/clerk-shim";
+import { useTheme, type ThemeMode } from "@/contexts/theme";
 import {
   useListCategories,
   useCreateCategory,
@@ -508,6 +509,65 @@ function QrVisibilityCard({ getToken }: { getToken: () => Promise<string | null>
   );
 }
 
+// ─── Appearance: theme switcher (Dark / Light / System) ─────────────────
+function AppearanceSection() {
+  const { t } = useTranslation();
+  const { mode, resolved, setMode } = useTheme();
+
+  const options: { id: ThemeMode; label: string; icon: React.ReactNode; description: string }[] = [
+    { id: "dark",   label: t("settings.appearance.dark",  "داكن"),  icon: <Moon size={16} />,   description: t("settings.appearance.darkDesc",  "الثيم الافتراضي") },
+    { id: "light",  label: t("settings.appearance.light", "فاتح"),  icon: <Sun size={16} />,    description: t("settings.appearance.lightDesc", "مريح في النهار") },
+    { id: "system", label: t("settings.appearance.system","تلقائي"),icon: <Monitor size={16} />,description: t("settings.appearance.systemDesc","يتبع الجهاز") },
+  ];
+
+  return (
+    <section data-testid="appearance-section">
+      <div className="mb-4">
+        <h2 className="text-sm font-semibold text-foreground">
+          {t("settings.appearance.title", "المظهر")}
+        </h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {t("settings.appearance.subtitle", "اختر الثيم المفضل — يُطبَّق فوراً ويُحفظ على الجهاز")}
+        </p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {options.map((opt) => {
+          const active = mode === opt.id;
+          const showResolvedHint = opt.id === "system";
+          return (
+            <button
+              key={opt.id}
+              data-testid={`theme-option-${opt.id}`}
+              onClick={() => setMode(opt.id)}
+              className={`relative text-start p-4 rounded-2xl border transition-all duration-200 ${
+                active
+                  ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30"
+                  : "border-border bg-card hover:border-primary/30 hover:bg-card/80"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${active ? "bg-primary text-white" : "bg-muted text-foreground"}`}>
+                  {opt.icon}
+                </div>
+                {active && <Check size={14} className="text-primary" />}
+              </div>
+              <div className="font-medium text-sm">{opt.label}</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                {opt.description}
+                {showResolvedHint && (
+                  <span className="ms-1 text-foreground/60">
+                    ({resolved === "dark" ? t("settings.appearance.dark", "داكن") : t("settings.appearance.light", "فاتح")})
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function SettingsPage() {
   const { t } = useTranslation();
   const { user } = useUser();
@@ -570,6 +630,8 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        <AppearanceSection />
+
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
