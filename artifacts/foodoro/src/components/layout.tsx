@@ -69,7 +69,7 @@ function CurrencySelector() {
               {isAr ? `اختر العملة (${currencies.length})` : `Select Currency (${currencies.length})`}
             </p>
           </div>
-          <div className="overflow-y-auto max-h-80" data-testid="currency-list-scroll">
+          <div className="overflow-y-auto max-h-80 scrollbar-visible" data-testid="currency-list-scroll">
             {currencies.map((c) => (
               <button
                 key={c.code}

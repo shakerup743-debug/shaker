@@ -364,3 +364,29 @@ html, body {
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* Utility: ALWAYS visible scrollbar for dropdowns / lists where the user
+   needs an immediate hint that more content exists below the fold. */
+.scrollbar-visible {
+  scrollbar-width: auto;
+  scrollbar-color: hsl(var(--primary) / 0.7) hsl(var(--muted));
+}
+.scrollbar-visible::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  display: block;
+}
+.scrollbar-visible::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 999px;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.7);
+  border-radius: 999px;
+  border: 2px solid hsl(var(--muted));
+  background-clip: padding-box;
+}
+.scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
+  background-clip: padding-box;
+}
