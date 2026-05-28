@@ -95,6 +95,32 @@ User's investor meeting upcoming. Issues fixed:
 8. **P2** Translate 23 stub locales.
 9. **P2** Web Push via VAPID.
 
+### 2026-02-23 — AI Production Foundation (Plan A) ⭐
+- ✅ **NEW MODULE — 3 production-grade AI engines + unified dashboard**:
+  - **Predictive Engine** (`/app/artifacts/api-server/src/lib/ai/predictive-engine.ts`):
+    EMA(α=0.3) + weekly seasonality factor + OLS linear regression. Returns per-product daily forecast (qty, peak hours, recommended stock, trend, confidence 0-100). Daily aggregator computes revenue, peak hour, staffing needs.
+  - **Recommendation Engine** (`recommendation-engine.ts`):
+    3-tier hybrid — (a) collaborative filtering using top-100 customer neighbours, (b) basket-pairing via association mining over completed orders, (c) trending fallback weighted by current hour ±1 + day-of-week.
+  - **Anomaly Detection** (`anomaly-detection.ts`):
+    z-score-based detection on revenue, cancellation rate, daily discount ratio + per-order >30% discount flag. Severity = critical/high/medium/low from |z|. LLM narrative summary via sidecar.
+  - **Shared LLM client** (`llm-client.ts`): wraps existing AI sidecar (Claude Haiku 4.5 via `EMERGENT_LLM_KEY`) with system prompts + in-memory TTL cache (no Redis added).
+  - **7 new REST endpoints** under `/api/ai/`:
+    `GET /predictions/daily`, `/predictions/products`, `/predictions/inventory-plan`, `/predictions/narrative`,
+    `GET /recommendations/trending`, `/recommendations/customer/:id`,
+    `POST /recommendations/basket`, `GET /anomalies`.
+  - **Frontend** `/ai/insights` — 3-tab dashboard (Predict / Recommend / Anomaly) with KPI cards, top-10 products, 7-day inventory plan, LLM narrative button, basket recommendation tester, severity-colored anomaly list. Added to sidebar in Sales & Finance group.
+  - All engines respect Drizzle RLS via `req.db!`. No new infrastructure (Redis/Qdrant/ONNX) — pure TypeScript math + existing AI sidecar.
+- ✅ **Verified via curl**: daily forecast, products, inventory plan, recommendations (trending + basket), anomalies, and LLM-generated Arabic narrative all return correct JSON.
+
+## Next Action Items (Post-AI Foundation)
+1. **P0** Wire real WhatsApp provider (Twilio recommended).
+2. **P0** Tax-model harmonisation.
+3. **P1** Pre-INSERT fraud scoring + Option-group inventory deduction.
+4. **P1** QR Menu Metrics dashboard (languages/currencies of customers).
+5. **P1** Cloudflare R2 / S3 image upload.
+6. **P2** Voice AI + Computer Vision (Plan B AI track, Phase 2).
+7. **P2** Advanced ML infra (Redis cache + Qdrant vector DB) when scale demands.
+
 ### 2026-02-23 — Auth Fix + Product Variants/Options (full + delta pricing)
 - ✅ **CRITICAL auth fix**: brute-force lockout was IP-only → blocked all users on shared NAT (cause of "can't login after logout" bug). Switched to **per (email+ip) primary lock at 6 fails** + IP-only DoS guard at 50. Successful login clears prior failures.
 - ✅ **NEW FEATURE — Product Variants/Options with dual pricing modes**:

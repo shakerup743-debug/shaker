@@ -333,6 +333,7 @@ const MANAGEMENT_GROUPS = [
       { path: "/financials/overview", icon: DollarSign, labelKey: "nav.financialsOverview",testId: "nav-financials-overview" },
       { path: "/payments",            icon: CreditCard, labelKey: "nav.payments",          testId: "nav-payments" },
       { path: "/loyalty",             icon: Star,       labelKey: "nav.loyalty",           testId: "nav-loyalty" },
+      { path: "/ai/insights",         icon: Brain,      labelKey: "nav.aiInsights",        testId: "nav-ai-insights" },
     ],
   },
   {

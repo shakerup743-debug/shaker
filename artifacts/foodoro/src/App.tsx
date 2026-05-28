@@ -42,6 +42,7 @@ const CashierAmendmentsPage   = lazy(() => import("@/pages/cashier-amendments"))
 const SettingsPage            = lazy(() => import("@/pages/settings"));
 const QrOrdersPage            = lazy(() => import("@/pages/qr-orders"));
 const FraudMonitoringPage     = lazy(() => import("@/pages/fraud-monitoring"));
+const AiInsightsPage          = lazy(() => import("@/pages/ai-insights"));
 const DiscountSettingsPage    = lazy(() => import("@/pages/discount-settings"));
 const InvoiceSettingsPage     = lazy(() => import("@/pages/invoice-settings"));
 const NotFound                = lazy(() => import("@/pages/not-found"));
@@ -171,6 +172,7 @@ function AppRoutes() {
                   <Route path="/qr-orders"               component={QrOrdersPage} />
                   <Route path="/cashier/qr-orders"       component={QrOrdersPage} />
                   <Route path="/security/fraud"          component={FraudMonitoringPage} />
+                  <Route path="/ai/insights"             component={AiInsightsPage} />
                   <Route path="/settings/discounts"      component={DiscountSettingsPage} />
                   <Route path="/settings/invoice"        component={InvoiceSettingsPage} />
                   <Route                                 component={NotFound} />
