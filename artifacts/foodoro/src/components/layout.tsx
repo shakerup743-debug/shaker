@@ -93,6 +93,63 @@ function CurrencySelector() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   CURRENCY BAR — horizontal strip of quick-pick currency pills.
+   Sits at the top of the main content area, always visible,
+   one-click switch between popular currencies. Tourists and
+   multi-currency staff can switch instantly without opening
+   the sidebar selector.
+═══════════════════════════════════════════════════════ */
+const QUICK_CURRENCIES = ["SAR", "USD", "EUR", "GBP", "AED", "KWD", "BHD", "QAR"];
+
+function CurrencyBar() {
+  const { currency, currencies, setCurrency } = useCurrency();
+  const { i18n } = useTranslation();
+  const isAr = i18n.language === "ar";
+
+  // Pick the quick-list currencies that actually exist in the loaded set
+  const quick = QUICK_CURRENCIES
+    .map((code) => currencies.find((c) => c.code === code))
+    .filter((c): c is NonNullable<typeof c> => c != null);
+
+  // Ensure the currently selected currency is always visible at the start
+  const ordered = quick.find((c) => c.code === currency.code)
+    ? quick
+    : [currency, ...quick.filter((c) => c.code !== currency.code)];
+
+  return (
+    <div
+      data-testid="currency-bar"
+      className="sticky top-0 z-20 bg-card/80 backdrop-blur-md border-b border-border px-4 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none"
+    >
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap shrink-0">
+        {isAr ? "العملة" : "Currency"}
+      </span>
+      <div className="flex items-center gap-1.5 flex-1">
+        {ordered.map((c) => {
+          const active = c.code === currency.code;
+          return (
+            <button
+              key={c.code}
+              data-testid={`currency-pill-${c.code}`}
+              onClick={() => setCurrency(c.code)}
+              title={isAr ? c.nameAr : c.name}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30"
+                  : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+              }`}
+            >
+              <span className="font-mono text-[10px] opacity-80">{c.symbol}</span>
+              <span>{c.code}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
    TOOLS MENU — dropdown holding low-frequency utilities
    (Kitchen, Amendments, Notifications, Language switcher).
    Keeps the main rail uncluttered per UX spec.
@@ -543,7 +600,7 @@ function ManagementPanel({
       <div
         className={`
           fixed inset-y-0 start-16 w-64 bg-card border-e border-border z-30
-          overflow-y-auto scrollbar-none py-3
+          overflow-y-auto py-3
           transition-all duration-200 ease-in-out
           ${open ? "opacity-100 translate-x-0 shadow-2xl shadow-black/50" : "opacity-0 -translate-x-4 pointer-events-none"}
         `}
@@ -875,7 +932,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* ── Main Content ─────────────────────────────────────── */}
       <main className="flex-1 overflow-hidden relative z-10 flex flex-col">
         <SubscriptionBanner />
-        <div className="flex-1 overflow-hidden">{children}</div>
+        <div className="flex-1 overflow-y-auto" data-testid="main-content-scroll">
+          <CurrencyBar />
+          {children}
+        </div>
       </main>
 
       {/* ── Floating AI Assistant ────────────────────────────── */}
