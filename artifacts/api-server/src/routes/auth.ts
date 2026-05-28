@@ -503,15 +503,28 @@ router.post("/auth/logout", async (req, res): Promise<void> => {
     } catch { /* expired/invalid token is fine — cookie path covers it */ }
   }
 
-  // Revoke the refresh-token chain associated with this cookie and clear it
+  // Revoke the refresh-token chain associated with this cookie and clear it.
+  // We handle BOTH the "valid cookie" case and the "already-replaced / reused"
+  // case (the reuse-detection path already revoked the chain on the prior
+  // refresh, but a final clearRefreshCookie + audit is still useful).
   const raw = readRefreshToken(req);
+  let revokedUserId: number | null = null;
   if (raw) {
     const v = await verifyAndConsumeRefreshToken(raw);
-    if (v.ok) await revokeAllForUser(v.row.userId);
+    if (v.ok) {
+      revokedUserId = v.row.userId;
+      await revokeAllForUser(v.row.userId);
+    }
   }
   clearRefreshCookie(res);
 
-  void logAudit(req, "logout", "auth", req.user?.sub ?? null, { email: req.user?.email });
+  void logAudit(
+    req,
+    "logout",
+    "auth",
+    req.user?.sub ?? (revokedUserId ? String(revokedUserId) : null),
+    { email: req.user?.email, cookieRevoked: revokedUserId != null },
+  );
   res.status(204).end();
 });
 

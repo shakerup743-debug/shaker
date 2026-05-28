@@ -203,6 +203,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // We monkey-patch window.fetch. When any /api/* call comes back 401, try
   // a silent refresh; if it succeeds, replay the original request once.
   useEffect(() => {
+    // Guard against double-wrapping under HMR / multiple AuthProvider mounts.
+    const w = window as Window & { __foodoroFetchPatched?: boolean };
+    if (w.__foodoroFetchPatched) return;
+    w.__foodoroFetchPatched = true;
+
     const originalFetch = window.fetch.bind(window);
     const isAuthRoute = (url: string): boolean =>
       url.includes("/api/auth/login")
@@ -235,7 +240,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return originalFetch(input as RequestInfo, newInit);
     };
     window.fetch = wrapped;
-    return () => { window.fetch = originalFetch; };
+    return () => {
+      window.fetch = originalFetch;
+      w.__foodoroFetchPatched = false;
+    };
   }, [silentRefresh]);
 
   const login = useCallback(async (email: string, password: string) => {
