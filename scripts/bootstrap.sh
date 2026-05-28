@@ -240,6 +240,90 @@ CREATE INDEX IF NOT EXISTS refresh_tokens_user_idx    ON refresh_tokens(user_id)
 CREATE INDEX IF NOT EXISTS refresh_tokens_hash_idx    ON refresh_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS refresh_tokens_expires_idx ON refresh_tokens(expires_at);
 
+-- ─── Anti-Fraud (QR Orders) tables ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS qr_scans (
+  id                 SERIAL PRIMARY KEY,
+  tenant_id          INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+  qr_token           TEXT NOT NULL,
+  table_number       TEXT,
+  device_fingerprint TEXT,
+  ip_address         TEXT,
+  user_agent         TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS qr_scans_tenant_idx ON qr_scans(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS qr_scans_token_idx  ON qr_scans(qr_token);
+CREATE INDEX IF NOT EXISTS qr_scans_fp_idx     ON qr_scans(device_fingerprint);
+
+CREATE TABLE IF NOT EXISTS qr_order_security (
+  id                   SERIAL PRIMARY KEY,
+  tenant_id            INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+  order_id             INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+  qr_scan_id           INTEGER REFERENCES qr_scans(id) ON DELETE SET NULL,
+  customer_name        TEXT,
+  customer_phone       TEXT,
+  device_fingerprint   TEXT,
+  ip_address           TEXT,
+  fraud_score          INTEGER NOT NULL DEFAULT 0,
+  fraud_flags          TEXT[],
+  risk_level           TEXT NOT NULL DEFAULT 'low',
+  status               TEXT NOT NULL DEFAULT 'accepted',
+  otp_required         BOOLEAN NOT NULL DEFAULT FALSE,
+  otp_verified         BOOLEAN NOT NULL DEFAULT FALSE,
+  cashier_approval     BOOLEAN,
+  cashier_approved_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  cashier_approved_at  TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS qros_tenant_idx ON qr_order_security(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS qros_status_idx ON qr_order_security(tenant_id, status);
+CREATE INDEX IF NOT EXISTS qros_order_idx  ON qr_order_security(order_id);
+
+CREATE TABLE IF NOT EXISTS fraud_attempts (
+  id                 SERIAL PRIMARY KEY,
+  tenant_id          INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+  detection_type     TEXT NOT NULL,
+  qr_token           TEXT,
+  device_fingerprint TEXT,
+  ip_address         TEXT,
+  phone_number       TEXT,
+  fraud_score        INTEGER NOT NULL DEFAULT 0,
+  severity           TEXT NOT NULL DEFAULT 'low',
+  action_taken       TEXT NOT NULL DEFAULT 'logged',
+  metadata           JSONB,
+  detected_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS fraud_attempts_tenant_idx ON fraud_attempts(tenant_id, detected_at DESC);
+CREATE INDEX IF NOT EXISTS fraud_attempts_sev_idx    ON fraud_attempts(tenant_id, severity);
+
+CREATE TABLE IF NOT EXISTS whatsapp_otps (
+  id            SERIAL PRIMARY KEY,
+  tenant_id     INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+  phone_number  TEXT NOT NULL,
+  otp_code      TEXT NOT NULL,
+  order_sec_id  INTEGER REFERENCES qr_order_security(id) ON DELETE CASCADE,
+  attempts      INTEGER NOT NULL DEFAULT 0,
+  is_used       BOOLEAN NOT NULL DEFAULT FALSE,
+  used_at       TIMESTAMPTZ,
+  expires_at    TIMESTAMPTZ NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS otps_phone_idx ON whatsapp_otps(phone_number, created_at DESC);
+CREATE INDEX IF NOT EXISTS otps_sec_idx   ON whatsapp_otps(order_sec_id);
+
+CREATE TABLE IF NOT EXISTS security_blacklist (
+  id              SERIAL PRIMARY KEY,
+  tenant_id       INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+  blacklist_type  TEXT NOT NULL,
+  value           TEXT NOT NULL,
+  reason          TEXT,
+  blocked_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  expires_at      TIMESTAMPTZ,
+  blocked_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (tenant_id, blacklist_type, value)
+);
+CREATE INDEX IF NOT EXISTS bl_tenant_idx ON security_blacklist(tenant_id, blacklist_type);
+
 CREATE TABLE IF NOT EXISTS invoice_settings (
   id SERIAL PRIMARY KEY,
   tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
