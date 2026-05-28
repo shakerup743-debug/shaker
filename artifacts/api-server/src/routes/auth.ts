@@ -7,6 +7,14 @@ import { eq, and, gte, count, or, sql } from "drizzle-orm";
 import { signToken } from "../lib/jwt.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { logAudit } from "../lib/audit.js";
+import {
+  issueRefreshToken,
+  readRefreshToken,
+  verifyAndConsumeRefreshToken,
+  markReplaced,
+  clearRefreshCookie,
+  revokeAllForUser,
+} from "../lib/refresh-tokens.js";
 import * as OTPAuth from "otpauth";
 
 const router = Router();
@@ -461,6 +469,10 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     { userId: user.id, userName: user.name },
   );
 
+  // Persistent login: issue an HttpOnly refresh-token cookie (30d).
+  // The access token still flows as JSON for client-side use.
+  await issueRefreshToken({ res, userId: user.id, tenantId: user.tenantId, ip, ua });
+
   res.json({
     token,
     user: {
@@ -472,16 +484,34 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   });
 });
 
-router.post("/auth/logout", authenticate, async (req, res): Promise<void> => {
-  // Mark session as revoked if sessionId is in JWT
-  const payload = req.user as { sub: string; sessionId?: number };
-  if (payload?.sessionId) {
-    void db
-      .update(userSessionsTable)
-      .set({ revoked: true })
-      .where(eq(userSessionsTable.id, payload.sessionId));
+// Logout works even if the access token already expired — we read the
+// refresh cookie directly to revoke the chain. This makes "logout from
+// stale tab" reliable and prevents zombie refresh tokens.
+router.post("/auth/logout", async (req, res): Promise<void> => {
+  // Best-effort revoke of the access-token session if a Bearer was sent
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    try {
+      const { verifyToken } = await import("../lib/jwt.js");
+      const payload = await verifyToken(authHeader.slice(7));
+      if (payload?.sessionId) {
+        void db
+          .update(userSessionsTable)
+          .set({ revoked: true })
+          .where(eq(userSessionsTable.id, payload.sessionId));
+      }
+    } catch { /* expired/invalid token is fine — cookie path covers it */ }
   }
-  void logAudit(req, "logout", "auth", req.user?.sub, { email: req.user?.email });
+
+  // Revoke the refresh-token chain associated with this cookie and clear it
+  const raw = readRefreshToken(req);
+  if (raw) {
+    const v = await verifyAndConsumeRefreshToken(raw);
+    if (v.ok) await revokeAllForUser(v.row.userId);
+  }
+  clearRefreshCookie(res);
+
+  void logAudit(req, "logout", "auth", req.user?.sub ?? null, { email: req.user?.email });
   res.status(204).end();
 });
 
@@ -489,32 +519,48 @@ router.get("/auth/me", authenticate, (req, res): void => {
   res.json({ user: req.user });
 });
 
-router.post("/auth/refresh", authenticate, async (req, res): Promise<void> => {
-  const userPayload = req.user!;
+// NOTE: refresh deliberately does NOT use `authenticate`. The whole point of
+// a refresh token is to mint a new access token AFTER the old one expired.
+router.post("/auth/refresh", async (req, res): Promise<void> => {
+  const raw = readRefreshToken(req);
+  if (!raw) {
+    res.status(401).json({ error: "No refresh token", code: "NO_REFRESH" });
+    return;
+  }
+
+  const verified = await verifyAndConsumeRefreshToken(raw);
+  if (!verified.ok) {
+    // Any failure clears the cookie so the client doesn't get stuck in a loop.
+    clearRefreshCookie(res);
+    if (verified.reason === "reused") {
+      void recordSecurityEvent({
+        tenantId: null,
+        type: "refresh_token_reuse",
+        ip: req.ip ?? null,
+        severity: "high",
+        metadata: { hint: "possible token theft — chain revoked" },
+      });
+    }
+    res.status(401).json({ error: "Refresh failed", code: verified.reason.toUpperCase() });
+    return;
+  }
 
   const [user] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.id, parseInt(userPayload.sub, 10)));
+    .where(eq(usersTable.id, verified.row.userId));
 
   if (!user || !user.isActive) {
-    res.status(401).json({ error: "User not found or inactive" });
+    clearRefreshCookie(res);
+    res.status(401).json({ error: "User not found or inactive", code: "USER_INVALID" });
     return;
   }
 
   const ua = getUa(req);
   const ip = req.ip ?? req.socket?.remoteAddress ?? null;
 
-  // Revoke the old session (if the current JWT carried a sessionId)
-  const oldSessionId = userPayload.sessionId;
-  if (oldSessionId) {
-    await db
-      .update(userSessionsTable)
-      .set({ revoked: true })
-      .where(eq(userSessionsTable.id, oldSessionId));
-  }
-
-  // Create a fresh session row for the new token
+  // Old session row (if present in payload) is purely informational —
+  // we always create a fresh session row for traceability.
   const newSessionId = await recordSession({
     tenantId: user.tenantId ?? null,
     userId: user.id,
@@ -523,7 +569,7 @@ router.post("/auth/refresh", authenticate, async (req, res): Promise<void> => {
     ip,
     ua,
     isSuccess: true,
-    mfaVerified: false, // refresh does not re-verify MFA
+    mfaVerified: false,
   });
 
   const token = await signToken({
@@ -535,17 +581,21 @@ router.post("/auth/refresh", authenticate, async (req, res): Promise<void> => {
     sessionId: newSessionId,
   });
 
-  // Store hash so the session can be revoked
   await db
     .update(userSessionsTable)
     .set({ sessionTokenHash: sha256(token) })
     .where(eq(userSessionsTable.id, newSessionId));
 
+  // Rotate the refresh token: issue a new one and mark the old as replaced.
+  const fresh = await issueRefreshToken({ res, userId: user.id, tenantId: user.tenantId ?? null, ip, ua });
+  await markReplaced(verified.row.id, fresh.tokenId);
+
   void logAudit(req, "token_refresh", "auth", String(user.id), {
     email: user.email,
     role: user.role,
     newSessionId,
-    oldSessionId: oldSessionId ?? null,
+    oldRefreshId: verified.row.id,
+    newRefreshId: fresh.tokenId,
   });
 
   res.json({

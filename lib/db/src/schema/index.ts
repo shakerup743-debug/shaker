@@ -17,5 +17,6 @@ export * from "./qr-tokens";
 export * from "./master-password";
 export * from "./protected-operations";
 export * from "./order-amendments";
+export * from "./refresh-tokens";
 export { productAvailabilityLogTable } from "./products";
 export type { ProductAvailabilityLog, UnavailabilityReason } from "./products";

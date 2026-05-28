@@ -221,6 +221,25 @@ CREATE TABLE IF NOT EXISTS discount_logs (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS discount_logs_tenant_idx ON discount_logs(tenant_id, created_at DESC);
+
+-- Persistent-login refresh tokens (foodoro_rt cookie + sha256 hash in DB)
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id              SERIAL PRIMARY KEY,
+  user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tenant_id       INTEGER REFERENCES tenants(id) ON DELETE CASCADE,
+  token_hash      TEXT NOT NULL,
+  expires_at      TIMESTAMPTZ NOT NULL,
+  revoked         BOOLEAN NOT NULL DEFAULT FALSE,
+  replaced_by_id  INTEGER,
+  ip_address      TEXT,
+  user_agent      TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_used_at    TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS refresh_tokens_user_idx    ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS refresh_tokens_hash_idx    ON refresh_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS refresh_tokens_expires_idx ON refresh_tokens(expires_at);
+
 CREATE TABLE IF NOT EXISTS invoice_settings (
   id SERIAL PRIMARY KEY,
   tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

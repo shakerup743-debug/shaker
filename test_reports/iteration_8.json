@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 8 — P0 Persistent Login (refresh-token cookie) end-to-end validation. Both backend pytest (12/12) and Playwright E2E (10/10 scenarios) PASS. All four user-reported scenarios verified: (1) login → reload page stays logged in; (2) clear localStorage → silent cookie refresh restores session and mints a NEW token; (3) stale/expired access token → window.fetch interceptor refreshes and retries the original request once (returns 200); (4) logout fully clears foodoro_rt cookie and revokes the entire refresh-token chain (subsequent /api/auth/refresh = 401). Also verified: cookie flags (HttpOnly + SameSite=Lax + Path=/api/auth + Max-Age=2592000), JWT exp = exactly 7d (604800s ±60s), token rotation produces 2 different tokens with DB replaced_by_id chain, reused/already-replaced cookie returns 401 REUSED, no-cookie refresh returns 401 NO_REFRESH, 60s of idle does NOT auto-logout. AI engine regressions (/api/ai/predictions/daily, /api/ai/recommendations/trending, /api/ai/anomalies) all return success:true.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_persistent_login.py",
+    "/app/test_reports/pytest/iteration8_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "auth.ts:507-511 — logout reads & verifies the refresh cookie just to extract userId, then revokes the whole chain. If verifyAndConsumeRefreshToken returns reason='reused', the chain is NOT revoked by logout (the early-return `if (v.ok) ...` skips it). Minor: even in the reused-cookie case, logout should still clearRefreshCookie (it does) AND attempt to revoke by hashing the cookie directly. Today, a user logging out with an already-stolen-and-replayed cookie won't trigger chain revocation. Low impact because the chain was already revoked by the reuse-detection path on the prior refresh call.",
+    "refresh-tokens.ts schema uses boolean `revoked` rather than a `revoked_at` timestamp. Forensics (when was a chain killed?) will need to rely on auditLogs/securityEvents instead of refresh_tokens itself. Consider adding `revoked_at TIMESTAMPTZ` for chain-of-custody.",
+    "auth.tsx silentRefresh fetch monkey-patches window.fetch globally — fine for an SPA but be careful with HMR reloads in dev; double-wrapping fetch on hot-reload would compound retries. Verify there's a guard like `if (window.__foodoroFetchPatched) return`.",
+    "auth.ts:514 — logAudit references req.user?.sub but logout no longer requires authenticate; for cookie-only logouts req.user is undefined, so the audit row will lack the userId. Consider falling back to verified.row.userId when bearer is absent.",
+    "Cookie is set Secure=false (because we're on localhost http). In production this MUST be Secure=true; verify NODE_ENV gating in issueRefreshToken.",
+    "Login response leaks no PII beyond {id,name,email,role} — good. But the new POST /api/auth/refresh response mirrors the same shape — confirm it does NOT include tenantId, mfaSecret, password fields under any future expansion."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_persistent_login.py",
+    "/app/test_reports/pytest/iteration8_results.xml",
+    "/app/test_reports/iteration_8.json"
+  ],
+  "success_rate": {
+    "backend": "12/12 (100%)",
+    "frontend": "10/10 E2E scenarios (100%)"
+  },
+  "test_credentials": "demo@foodpro.com / Demo2026!",
+  "seed_data_creation": "None. Tests clear security_events login_failed/login_blocked at module start to avoid brute-force lockout from prior runs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Persistent login is fully GREEN. Backend tests in /app/backend/tests/test_persistent_login.py use the real refresh_tokens table — column is `revoked` (boolean), NOT revoked_at. To re-run cleanly: pytest /app/backend/tests/test_persistent_login.py -v. Frontend E2E covered via Playwright: login → cookie HttpOnly+SameSite=Lax+/api/auth+30d → reload stays logged in → localStorage clear → /api/auth/refresh via cookie restores session → stale-token fetch interceptor retries 401 once → 60s idle no auto-logout → logout 204 → refresh after logout = 401. Pre-existing issue from iteration 7 (POST /api/orders 500 on simple dine_in) is NOT related to this P0 fix and was not retested here.",
+  "rca_of_the_issue": "User report 'auto-logout after refresh/browser-close' is fully resolved. Root cause was JWT-only auth with localStorage. Fix: HttpOnly refresh-token cookie (foodoro_rt, path=/api/auth, 30d) + 7d access JWT + cookie-only /api/auth/refresh + token rotation with replaced_by_id chain + reuse-detection revokes full chain + window.fetch interceptor silently retries 401 calls + auth context init() attempts cookie refresh on cold start. All paths validated end-to-end."
+}

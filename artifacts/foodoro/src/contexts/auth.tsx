@@ -1,24 +1,34 @@
+// Persistent-login auth context.
+//
+// Flow:
+//   • Login   → backend issues short-lived JWT (7d) + HttpOnly refresh cookie (30d).
+//               JWT is kept in localStorage for Bearer-header API calls.
+//   • Init    → on app open, if a JWT is in localStorage and still valid: use it.
+//               Otherwise (expired or missing) hit /api/auth/refresh with
+//               credentials:'include' so the cookie does the work. If that
+//               succeeds → seamless login. Else → show sign-in.
+//   • Refresh → triggered (a) on init if access token missing/expired,
+//               (b) proactively in the last 24h of access-token lifetime,
+//               (c) on every 401 from any API call (handled in fetch wrapper).
+//   • Logout  → POST /api/auth/logout (revokes refresh chain + clears cookie),
+//               then wipe local state.
+//
+// We intentionally do NOT auto-logout on idle. Persistent login is the goal.
+// Sensitive operations (Master Password ops) still require re-auth on their own.
+
 import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-  useRef,
+  createContext, useContext, useEffect, useState, useCallback, useRef,
 } from "react";
-import { useTranslation } from "react-i18next";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
 
 const TOKEN_KEY = "foodoro-token";
-const USER_KEY = "foodoro-user";
+const USER_KEY  = "foodoro-user";
 
-const REFRESH_WINDOW_MS = 30 * 60 * 1000;
-const CHECK_INTERVAL_MS = 30 * 1000;
-const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
-const IDLE_WARN_MS = 2 * 60 * 1000;
+// When the JWT has less than this many ms left, silently refresh in the background.
+const REFRESH_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h before expiry
+const CHECK_INTERVAL_MS = 5 * 60 * 1000;       // poll every 5 minutes
 
-export type UserRole = "admin" | "cashier" | "kitchen_staff" | "inventory_manager";
+export type UserRole = "admin" | "owner" | "cashier" | "kitchen" | "kitchen_staff" | "waiter" | "inventory_manager" | "accountant" | "branch_manager" | "area_manager" | "platform_admin";
 
 export interface AuthUser {
   id: number;
@@ -34,7 +44,7 @@ interface AuthContextValue {
   idleWarning: boolean;
   dismissIdleWarning: () => void;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   hasRole: (...roles: UserRole[]) => boolean;
 }
 
@@ -61,12 +71,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sessionRemainingMs, setSessionRemainingMs] = useState<number | null>(null);
-  const [idleWarning, setIdleWarning] = useState(false);
-  const { t } = useTranslation();
-  const { toast } = useToast();
-  const warnedRef = useRef(false);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const idleWarnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const refreshInFlightRef = useRef<Promise<boolean> | null>(null);
+  const initRanRef = useRef(false);
 
   const applyToken = useCallback((token: string) => {
     setAuthTokenGetter(() => token);
@@ -78,9 +85,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthTokenGetter(null);
     setUser(null);
     setSessionRemainingMs(null);
-    setIdleWarning(false);
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (idleWarnTimerRef.current) clearTimeout(idleWarnTimerRef.current);
   }, []);
 
   const storeSession = useCallback((token: string, authUser: AuthUser) => {
@@ -88,158 +92,164 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(USER_KEY, JSON.stringify(authUser));
     applyToken(token);
     setUser(authUser);
-    warnedRef.current = false;
   }, [applyToken]);
 
+  /**
+   * Hits POST /api/auth/refresh with credentials:"include" so the HttpOnly
+   * refresh cookie is sent. No Authorization header is needed — that was the
+   * core bug of the previous implementation.
+   *
+   * Deduplicates concurrent calls so a burst of 401s only triggers one refresh.
+   */
   const silentRefresh = useCallback(async (): Promise<boolean> => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) return false;
-    try {
-      const res = await fetch("/api/auth/refresh", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return false;
-      const data = await res.json() as { token: string; user: AuthUser };
-      storeSession(data.token, data.user);
-      return true;
-    } catch {
-      return false;
-    }
+    if (refreshInFlightRef.current) return refreshInFlightRef.current;
+    const p = (async (): Promise<boolean> => {
+      try {
+        const res = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!res.ok) return false;
+        const data = (await res.json()) as { token: string; user: AuthUser };
+        storeSession(data.token, data.user);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        refreshInFlightRef.current = null;
+      }
+    })();
+    refreshInFlightRef.current = p;
+    return p;
   }, [storeSession]);
 
-  const doLogout = useCallback(() => {
+  const doLogout = useCallback(async () => {
     const token = localStorage.getItem(TOKEN_KEY);
-    if (token) {
-      fetch("/api/auth/logout", {
+    try {
+      await fetch("/api/auth/logout", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
-    }
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch { /* network errors are fine — we still clear local state */ }
     clearAuth();
   }, [clearAuth]);
 
-  const resetIdleTimers = useCallback(() => {
-    setIdleWarning(false);
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (idleWarnTimerRef.current) clearTimeout(idleWarnTimerRef.current);
-
-    idleWarnTimerRef.current = setTimeout(() => {
-      setIdleWarning(true);
-    }, IDLE_TIMEOUT_MS - IDLE_WARN_MS);
-
-    idleTimerRef.current = setTimeout(() => {
-      setIdleWarning(false);
-      doLogout();
-    }, IDLE_TIMEOUT_MS);
-  }, [doLogout]);
-
-  const dismissIdleWarning = useCallback(() => {
-    resetIdleTimers();
-  }, [resetIdleTimers]);
-
+  // ── INIT: runs once on app open ────────────────────────────────────────
+  // 1. If localStorage has a JWT that hasn't expired → use it.
+  // 2. Else try a cookie-based refresh — covers the "came back after a week"
+  //    case where localStorage was cleared or the JWT expired but the
+  //    long-lived cookie is still valid.
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    const userStr = localStorage.getItem(USER_KEY);
+    if (initRanRef.current) return;
+    initRanRef.current = true;
 
     const init = async () => {
-      if (token && userStr) {
-        try {
-          const parsed = JSON.parse(userStr) as AuthUser;
-          const expiry = getTokenExpiry(token);
-          const now = Date.now();
+      const token = localStorage.getItem(TOKEN_KEY);
+      const userStr = localStorage.getItem(USER_KEY);
 
-          if (expiry && expiry <= now) {
-            const refreshed = await silentRefresh();
-            if (!refreshed) {
-              clearAuth();
-              setIsLoading(false);
-              return;
-            }
-          } else {
+      if (token && userStr) {
+        const expiry = getTokenExpiry(token);
+        const now = Date.now();
+        if (expiry && expiry > now) {
+          try {
+            const parsed = JSON.parse(userStr) as AuthUser;
             setUser(parsed);
             applyToken(token);
-            if (expiry && expiry - now <= REFRESH_WINDOW_MS) {
-              void silentRefresh();
-            }
-          }
-        } catch {
-          clearAuth();
+            // Refresh proactively if we're inside the 24h window
+            if (expiry - now <= REFRESH_WINDOW_MS) void silentRefresh();
+            setIsLoading(false);
+            return;
+          } catch { /* corrupted state, fall through to refresh */ }
         }
       }
+
+      // No usable local state — try cookie refresh silently
+      const refreshed = await silentRefresh();
+      if (!refreshed) clearAuth();
       setIsLoading(false);
     };
 
     void init();
   }, [applyToken, clearAuth, silentRefresh]);
 
+  // ── Periodic check: keep token fresh + display remaining time ──────────
   useEffect(() => {
-    if (!user) return;
-    resetIdleTimers();
+    if (!user) { setSessionRemainingMs(null); return; }
 
-    const events = ["mousedown", "mousemove", "keydown", "touchstart", "scroll", "click"];
-    const handler = () => { resetIdleTimers(); };
-    events.forEach((e) => window.addEventListener(e, handler, { passive: true }));
-    return () => {
-      events.forEach((e) => window.removeEventListener(e, handler));
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      if (idleWarnTimerRef.current) clearTimeout(idleWarnTimerRef.current);
-    };
-  }, [user, resetIdleTimers]);
-
-  useEffect(() => {
-    const updateRemaining = async () => {
+    const tick = async () => {
       const token = localStorage.getItem(TOKEN_KEY);
-      if (!token || !user) {
-        setSessionRemainingMs(null);
-        return;
-      }
-
+      if (!token) { setSessionRemainingMs(null); return; }
       const expiry = getTokenExpiry(token);
-      if (expiry === null) return;
-
-      const msUntilExpiry = expiry - Date.now();
-
-      if (msUntilExpiry <= 0) {
-        clearAuth();
-        return;
-      }
-
-      setSessionRemainingMs(msUntilExpiry);
-
-      if (msUntilExpiry <= REFRESH_WINDOW_MS) {
-        const refreshed = await silentRefresh();
-        if (!refreshed && !warnedRef.current) {
-          warnedRef.current = true;
-          toast({
-            title: t("session.refreshFailed"),
-            description: t("session.refreshFailedDesc"),
-            variant: "destructive",
-          });
-        }
+      if (expiry == null) return;
+      const remaining = expiry - Date.now();
+      setSessionRemainingMs(remaining);
+      if (remaining <= 0) {
+        // try one last refresh; if it fails, clear
+        const ok = await silentRefresh();
+        if (!ok) clearAuth();
+      } else if (remaining <= REFRESH_WINDOW_MS) {
+        void silentRefresh();
       }
     };
 
-    if (!user) return;
-
-    void updateRemaining();
-    const interval = setInterval(() => { void updateRemaining(); }, CHECK_INTERVAL_MS);
+    void tick();
+    const interval = setInterval(() => { void tick(); }, CHECK_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [user, silentRefresh, clearAuth, toast, t]);
+  }, [user, silentRefresh, clearAuth]);
+
+  // ── Global 401 auto-recovery for fetch ─────────────────────────────────
+  // We monkey-patch window.fetch. When any /api/* call comes back 401, try
+  // a silent refresh; if it succeeds, replay the original request once.
+  useEffect(() => {
+    const originalFetch = window.fetch.bind(window);
+    const isAuthRoute = (url: string): boolean =>
+      url.includes("/api/auth/login")
+      || url.includes("/api/auth/refresh")
+      || url.includes("/api/auth/logout")
+      || url.includes("/api/auth/signup")
+      || url.includes("/api/auth/google");
+
+    const wrapped: typeof window.fetch = async (input, init) => {
+      const res = await originalFetch(input as RequestInfo, init);
+      const url = typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      if (res.status !== 401) return res;
+      if (!url.includes("/api/")) return res;
+      if (isAuthRoute(url)) return res;
+
+      const ok = await silentRefresh();
+      if (!ok) return res;
+
+      // Replay original request with the fresh token
+      const fresh = localStorage.getItem(TOKEN_KEY);
+      const newInit: RequestInit = { ...(init ?? {}) };
+      const headers = new Headers(newInit.headers ?? {});
+      if (fresh) headers.set("Authorization", `Bearer ${fresh}`);
+      newInit.headers = headers;
+      return originalFetch(input as RequestInfo, newInit);
+    };
+    window.fetch = wrapped;
+    return () => { window.fetch = originalFetch; };
+  }, [silentRefresh]);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await fetch("/api/auth/login", {
       method: "POST",
+      credentials: "include",   // critical: receive the HttpOnly refresh cookie
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-
     if (!res.ok) {
-      const body = await res.json().catch(() => ({})) as { error?: string };
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
       throw new Error(body.error ?? "Login failed");
     }
-
-    const data = await res.json() as { token: string; user: AuthUser };
+    const data = (await res.json()) as { token: string; user: AuthUser };
     storeSession(data.token, data.user);
   }, [storeSession]);
 
@@ -255,8 +265,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isLoading,
         sessionRemainingMs,
-        idleWarning,
-        dismissIdleWarning,
+        idleWarning: false,            // disabled — persistent login by design
+        dismissIdleWarning: () => {},
         login,
         logout: doLogout,
         hasRole,
