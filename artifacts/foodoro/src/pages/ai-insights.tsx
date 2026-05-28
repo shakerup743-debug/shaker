@@ -6,11 +6,10 @@
 // تصميم: dark theme, three sticky tabs, RTL، بدون emojis.
 
 import { useEffect, useState, useCallback } from "react";
-import { Layout } from "@/components/layout";
 import { useToast } from "@/hooks/use-toast";
 import {
   Brain, TrendingUp, AlertTriangle, Sparkles, RefreshCw,
-  Package, Clock, Users, Activity, ChevronRight,
+  Package, Clock, Users, Activity,
 } from "lucide-react";
 
 // ─── Types mirror backend payloads ────────────────────────────────────────
@@ -160,8 +159,7 @@ export default function AiInsightsPage() {
   };
 
   return (
-    <Layout>
-      <div className="space-y-6 p-4 lg:p-6 max-w-7xl mx-auto" data-testid="ai-insights-page">
+    <div className="space-y-6 p-4 lg:p-6 max-w-7xl mx-auto" data-testid="ai-insights-page">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -425,8 +423,7 @@ export default function AiInsightsPage() {
             </div>
           </div>
         )}
-      </div>
-    </Layout>
+    </div>
   );
 }
 

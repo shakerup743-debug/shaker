@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Shield, AlertTriangle, ShieldCheck, ShieldOff, RefreshCw, Check, X } from "lucide-react";
-import { Layout } from "@/components/layout";
 import { useToast } from "@/hooks/use-toast";
 
 interface FraudStats {
@@ -116,8 +115,7 @@ export default function FraudMonitoringPage() {
   };
 
   return (
-    <Layout>
-      <div className="space-y-6 p-4 lg:p-6 max-w-7xl mx-auto" data-testid="fraud-page">
+    <div className="space-y-6 p-4 lg:p-6 max-w-7xl mx-auto" data-testid="fraud-page">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -267,8 +265,7 @@ export default function FraudMonitoringPage() {
         {loading && (
           <p className="text-center text-xs text-muted-foreground">جاري التحميل...</p>
         )}
-      </div>
-    </Layout>
+    </div>
   );
 }
 
